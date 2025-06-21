@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Priemfactorisatie met digit-teller</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f2f2f2;
+      padding-top: 50px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    input {
+      font-size: 1.2em;
+      padding: 5px;
+      width: 250px;
+      text-align: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    button {
+      font-size: 1.2em;
+      padding: 5px 10px;
+      margin-left: 5px;
+      cursor: pointer;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      user-select: none;
+    }
+
+    .buttons-row {
+      display: flex;
+      align-items: center;
+      margin-top: 5px;
+    }
+
+    .digit-count {
+      margin-left: 10px;
+      font-size: 1.2em;
+      color: #555;
+    }
+
+    .result {
+      font-size: 1.2em;
+      margin-top: 15px;
+      text-align: left;
+      white-space: nowrap;
+      width: fit-content;
+      min-width: 320px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background: white;
+      min-height: 48px;
+      box-sizing: border-box;
+      align-self: flex-start;
+    }
+
+    sup {
+      font-size: 0.7em;
+      vertical-align: super;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .factor-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .factor-base {
+      white-space: nowrap;
+    }
+
+    .factor-digits {
+      min-width: 40px;
+      text-align: right;
+      color: #555;
+    }
+
+    .top-row {
+      display: flex;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Priemfactorisatie met digit-teller</h1>
+
+  <div class="input-group">
+    <label for="inputNumber">Welk getal?</label>
+    <div class="top-row">
+      <input type="text" id="inputNumber" autocomplete="off" spellcheck="false" />
+      <button id="btnFactoriseer" title="Factoriseer">Factoriseer</button>
+      <button id="btnUp" title="Verhoog met 1">↑</button>
+      <button id="btnDown" title="Verlaag met 1">↓</button>
+      <span class="digit-count" id="digitCount">(0)</span>
+    </div>
+    <div class="result" id="output"></div>
+  </div>
+
+  <script>
+    const inputField = document.getElementById('inputNumber');
+    const outputDiv = document.getElementById('output');
+    const btnFactoriseer = document.getElementById('btnFactoriseer');
+    const btnUp = document.getElementById('btnUp');
+    const btnDown = document.getElementById('btnDown');
+    const digitCount = document.getElementById('digitCount');
+
+    function updateDigitCount() {
+      const digits = inputField.value.trim().replace(/^0+/, '').length;
+      digitCount.textContent = `(${digits})`;
+    }
+
+    function factoriseer() {
+      const input = inputField.value.trim();
+      let n;
+      try {
+        n = BigInt(input);
+      } catch (e) {
+        outputDiv.textContent = 'Ongeldig getal. Gebruik alleen cijfers.';
+        updateDigitCount();
+        return;
+      }
+
+      if (n < 2n) {
+        outputDiv.textContent = 'Voer een geheel getal ≥ 2 in.';
+        updateDigitCount();
+        return;
+      }
+
+      const origineel = n;
+      const factoren = [];
+
+      function voegToe(factor) {
+        let count = 0;
+        while (n % factor === 0n) {
+          n /= factor;
+          count++;
+        }
+        if (count > 0) {
+          factoren.push({ base: factor, exponent: count });
+        }
+      }
+
+      voegToe(2n);
+      voegToe(3n);
+
+      let f = 5n;
+      while (f * f <= n) {
+        voegToe(f);
+        voegToe(f + 2n);
+        f += 6n;
+      }
+
+      if (n > 1n) {
+        factoren.push({ base: n, exponent: 1 });
+      }
+
+      outputDiv.innerHTML = ''; // reset
+
+      if (
+        factoren.length === 1 &&
+        factoren[0].exponent === 1 &&
+        factoren[0].base === origineel
+      ) {
+        outputDiv.innerHTML = `<strong>${origineel.toString()}</strong> is priem!`;
+        updateDigitCount();
+        return;
+      }
+
+      factoren.forEach((f) => {
+        const baseStr = f.base.toString();
+        const powerHTML = f.exponent === 1 ? '' : `<sup>${f.exponent}</sup>`;
+        const digits = baseStr.length;
+
+        const line = document.createElement('div');
+        line.className = 'factor-line';
+
+        const baseDiv = document.createElement('div');
+        baseDiv.className = 'factor-base';
+        baseDiv.innerHTML = baseStr + powerHTML;
+
+        const digitsDiv = document.createElement('div');
+        digitsDiv.className = 'factor-digits';
+        digitsDiv.textContent = `(${digits})`;
+
+        line.appendChild(baseDiv);
+        line.appendChild(digitsDiv);
+        outputDiv.appendChild(line);
+      });
+
+      updateDigitCount();
+    }
+
+    // Events
+    btnFactoriseer.addEventListener('click', factoriseer);
+
+    btnUp.addEventListener('click', () => {
+      try {
+        let val = BigInt(inputField.value.trim());
+        val += 1n;
+        inputField.value = val.toString();
+        factoriseer();
+      } catch {
+        inputField.value = '2';
+        factoriseer();
+      }
+    });
+
+    btnDown.addEventListener('click', () => {
+      try {
+        let val = BigInt(inputField.value.trim());
+        if (val > 2n) {
+          val -= 1n;
+          inputField.value = val.toString();
+          factoriseer();
+        }
+      } catch {
+        inputField.value = '2';
+        factoriseer();
+      }
+    });
+
+    inputField.addEventListener('keydown', function (e) {
+      if (['Enter', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+        setTimeout(factoriseer, 0);
+      }
+    });
+
+    inputField.addEventListener('input', updateDigitCount);
+  </script>
+</body>
+</html>

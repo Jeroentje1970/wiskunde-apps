@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <title>6x6 Kleurenpatroon naar Getal</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+    }
+
+    .container {
+      background: #ddd;
+      padding: 20px;
+      display: inline-block;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(6, 40px);
+      gap: 4px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .cell {
+      width: 40px;
+      height: 40px;
+      border: 1px solid #999;
+      cursor: pointer;
+    }
+
+    .inputs {
+      margin-bottom: 10px;
+    }
+
+    .inputs input {
+      padding: 6px;
+      width: 440px;
+      font-size: 16px;
+    }
+
+    .digit-count {
+      margin-left: 10px;
+      color: darkred;
+      font-size: 16px;
+    }
+
+    .buttons {
+      margin-top: 10px;
+    }
+
+    button {
+      margin: 5px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .arrow-buttons {
+      display: inline-flex;
+      flex-direction: column;
+      vertical-align: middle;
+      margin-left: 5px;
+    }
+
+    .arrow-buttons button {
+      padding: 2px 8px;
+      height: 20px;
+      line-height: 10px;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="inputs">
+      <input id="numberInput" type="text" placeholder="Voer een getal in..." />
+      <span class="digit-count" id="digitCount">0 cijfers</span>
+      <div class="arrow-buttons">
+        <button onclick="adjustNumber(1)">▲</button>
+        <button onclick="adjustNumber(-1)">▼</button>
+      </div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <div class="inputs">
+      <input id="numberOutput" type="text" readonly />
+      <span class="digit-count" id="outputDigitCount">0 cijfers</span>
+    </div>
+
+    <div class="buttons">
+      <button onclick="clearAll()">Wissen</button>
+      <button onclick="savePattern()">Opslaan</button>
+      <button onclick="loadPattern()">Laad opgeslagen patroon</button>
+    </div>
+  </div>
+
+  <script>
+    const gridSize = 6;
+    const totalCells = gridSize * gridSize;
+    const maxColor = 5;
+    const grid = document.getElementById("grid");
+    const numberInput = document.getElementById("numberInput");
+    const numberOutput = document.getElementById("numberOutput");
+    const digitCount = document.getElementById("digitCount");
+    const outputDigitCount = document.getElementById("outputDigitCount");
+
+    let cells = [];
+
+    function createGrid() {
+      grid.innerHTML = "";
+      cells = [];
+      for (let i = 0; i < totalCells; i++) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.dataset.index = i;
+        cell.style.background = getColor(0);
+        cell.dataset.color = 0;
+        cell.addEventListener("click", () => {
+          const color = (parseInt(cell.dataset.color) + 1) % 6;
+          cell.dataset.color = color;
+          cell.style.background = getColor(color);
+          updateOutputFromGrid();
+        });
+        cells.push(cell);
+        grid.appendChild(cell);
+      }
+    }
+
+    function getColor(index) {
+      return ["white", "yellow", "orange", "red", "blue", "green"][index];
+    }
+
+    function updateGridFromNumber(str) {
+      try {
+        let value = BigInt(str);
+        if (value < 1n) value = 1n;
+        value -= 1n;
+        const base6 = toBase6Digits(value, totalCells);
+        for (let i = 0; i < totalCells; i++) {
+          const idx = totalCells - 1 - i; // rechtsonder -> linksboven
+          const color = base6[i];
+          const cell = cells[idx];
+          cell.dataset.color = color;
+          cell.style.background = getColor(color);
+        }
+        numberOutput.value = str;
+        updateDigitCount(str);
+      } catch (e) {
+        console.error("Fout bij invoer:", e);
+      }
+    }
+
+    function updateOutputFromGrid() {
+      let base6 = [];
+      for (let i = totalCells - 1; i >= 0; i--) {
+        base6.push(cells[i].dataset.color);
+      }
+      let value = fromBase6Digits(base6);
+      value += 1n;
+      numberOutput.value = value.toString();
+      outputDigitCount.textContent = `${value.toString().length} cijfers`;
+    }
+
+    function toBase6Digits(value, length) {
+      const digits = [];
+      while (value > 0n) {
+        digits.unshift(Number(value % 6n));
+        value /= 6n;
+      }
+      while (digits.length < length) {
+        digits.unshift(0);
+      }
+      return digits;
+    }
+
+    function fromBase6Digits(digits) {
+      return digits.reduce((acc, d) => acc * 6n + BigInt(d), 0n);
+    }
+
+    numberInput.addEventListener("input", () => {
+      updateGridFromNumber(numberInput.value);
+    });
+
+    function updateDigitCount(str) {
+      const len = str.replace(/\D/g, "").length;
+      digitCount.textContent = `${len} cijfers`;
+    }
+
+    function adjustNumber(delta) {
+      try {
+        let value = BigInt(numberInput.value || "1");
+        value = value + BigInt(delta);
+        if (value < 1n) value = 1n;
+        numberInput.value = value.toString();
+        updateGridFromNumber(value.toString());
+      } catch (e) {
+        console.error("Ongeldige aanpassing:", e);
+      }
+    }
+
+    function clearAll() {
+      numberInput.value = "";
+      numberOutput.value = "";
+      digitCount.textContent = "0 cijfers";
+      outputDigitCount.textContent = "0 cijfers";
+      createGrid();
+    }
+
+    function savePattern() {
+      localStorage.setItem("savedPattern6x6", numberOutput.value);
+      alert("Patroon opgeslagen!");
+    }
+
+    function loadPattern() {
+      const saved = localStorage.getItem("savedPattern6x6");
+      if (saved) {
+        numberInput.value = saved;
+        updateGridFromNumber(saved);
+      } else {
+        alert("Geen patroon opgeslagen.");
+      }
+    }
+
+    // Initialiseren
+    createGrid();
+  </script>
+</body>
+</html>

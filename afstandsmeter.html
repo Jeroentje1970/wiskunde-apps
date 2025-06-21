@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Wereldafstandsmeter (mm)</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      background-color: #f4f4f4;
+      padding-top: 100px;
+    }
+    h1 {
+      font-size: 2.5em;
+      margin-bottom: 0.5em;
+    }
+    #counter {
+      font-size: 3em;
+      color: #0007cc;
+      word-break: break-word;
+      max-width: 90%;
+      margin: auto;
+    }
+    .unit {
+      font-size: 1.5em;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>Wereldafstandsmeter</h1>
+  <div id="counter">0</div>
+  <div class="unit">millimeter sinds het begin van alle voertuigen</div>
+
+  <script>
+    // Startwaarde als BigInt
+    let currentValue = 200000000000000000000000n;
+
+    // Specifiek getal per seconde als BigInt
+    const mmPerSecond = 3237474637687n;
+
+    const counter = document.getElementById("counter");
+
+    function formatBigInt(n) {
+      // Formatteer BigInt met punten tussen duizendtallen
+      return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function updateCounter() {
+      currentValue += mmPerSecond;
+      counter.textContent = formatBigInt(currentValue);
+    }
+
+    updateCounter();
+    setInterval(updateCounter, 1000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>6x6 Kleurencode naar Getal</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      padding: 30px;
+    }
+    .container {
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+    }
+    .grid-container {
+      background: #eee;
+      padding: 20px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(6, 40px);
+      grid-template-rows: repeat(6, 40px);
+      gap: 2px;
+    }
+    .cell {
+      width: 40px;
+      height: 40px;
+      background-color: white;
+      border: 1px solid #ccc;
+      cursor: pointer;
+    }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      width: 100%;
+      max-width: 600px;
+    }
+    .controls input[type="text"] {
+      padding: 6px 10px;
+      font-size: 16px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .digit-count {
+      font-size: 15px;
+      color: darkred;
+    }
+    .button-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .button-row button {
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .spinner-buttons {
+      display: flex;
+      flex-direction: column;
+    }
+    .spinner-buttons button {
+      width: 32px;
+      height: 20px;
+      font-size: 10px;
+      padding: 0;
+    }
+    label {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="grid-container">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="controls">
+    <label>Voer getal in:</label>
+    <div class="button-row">
+      <input type="text" id="inputValue" value="1" />
+      <div class="spinner-buttons">
+        <button onclick="adjustInput(1)">▲</button>
+        <button onclick="adjustInput(-1)">▼</button>
+      </div>
+    </div>
+    <div class="digit-count" id="digitCount"></div>
+
+    <button onclick="updateGridFromInput()">Teken patroon</button>
+    <button onclick="clearGrid()">Wissen</button>
+
+    <label>Getal bij huidig patroon:</label>
+    <input type="text" id="outputValue" readonly />
+  </div>
+</div>
+
+<script>
+  const grid = document.getElementById("grid");
+  const outputValue = document.getElementById("outputValue");
+  const inputValue = document.getElementById("inputValue");
+  const digitCount = document.getElementById("digitCount");
+
+  const colors = ["white", "yellow", "orange", "red", "blue", "green"];
+  const gridSize = 6;
+  const totalCells = gridSize * gridSize;
+
+  let cells = [];
+
+  // Rechteronderhoek als start, naar links, dan omhoog
+  const cellOrder = [];
+  for (let row = gridSize - 1; row >= 0; row--) {
+    for (let col = gridSize - 1; col >= 0; col--) {
+      cellOrder.push(row * gridSize + col);
+    }
+  }
+
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.dataset.color = "0";
+    cell.addEventListener("click", () => {
+      let current = parseInt(cell.dataset.color);
+      current = (current + 1) % 6;
+      cell.dataset.color = current;
+      cell.style.backgroundColor = colors[current];
+      updateOutput();
+    });
+    cells.push(cell);
+    grid.appendChild(cell);
+  }
+
+  function updateOutput() {
+    let total = 0n;
+    for (let i = 0; i < totalCells; i++) {
+      const idx = cellOrder[i];
+      const val = BigInt(cells[idx].dataset.color);
+      total += val * 6n ** BigInt(i);
+    }
+    const final = total + 1n;
+    outputValue.value = final.toString();
+    digitCount.textContent = `${final.toString().length} cijfers`;
+  }
+
+  function updateGridFromInput() {
+    try {
+      let val = BigInt(inputValue.value.trim());
+      if (val < 1n) throw "Minimaal 1";
+      val = val - 1n;
+      for (let i = 0; i < totalCells; i++) {
+        const remainder = val % 6n;
+        const idx = cellOrder[i];
+        cells[idx].dataset.color = remainder.toString();
+        cells[idx].style.backgroundColor = colors[Number(remainder)];
+        val = val / 6n;
+      }
+      updateOutput();
+    } catch (e) {
+      alert("Ongeldige invoer");
+    }
+  }
+
+  function clearGrid() {
+    cells.forEach(cell => {
+      cell.dataset.color = "0";
+      cell.style.backgroundColor = colors[0];
+    });
+    inputValue.value = "1";
+    updateOutput();
+  }
+
+  function adjustInput(step) {
+    try {
+      let val = BigInt(inputValue.value.trim());
+      val = val + BigInt(step);
+      if (val < 1n) val = 1n;
+      inputValue.value = val.toString();
+      updateGridFromInput();
+    } catch (e) {
+      alert("Ongeldige invoer");
+    }
+  }
+
+  // Initialisatie
+  updateGridFromInput();
+</script>
+
+</body>
+</html>

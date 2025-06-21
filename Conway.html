@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Conway Factorisatie</title>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    input { padding: 5px; font-size: 1em; width: auto; }
+    #output {
+      background-color: #f9f9f9;
+      padding: 15px;
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      white-space: pre-wrap;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <h2>Conway Factorisatie</h2>
+  <label>Voer een natuurlijk getal in:</label><br>
+  <input type="text" id="input" placeholder="20151" size="15">
+  <div id="output"></div>
+
+  <script>
+    const input = document.getElementById("input");
+    const output = document.getElementById("output");
+
+    input.addEventListener("keydown", function(event) {
+      if (event.key === "Enter") runConway();
+    });
+
+    function runConway() {
+      output.textContent = "";
+      let value = input.value.trim();
+      if (!/^\d+$/.test(value)) {
+        output.textContent = "Ongeldige invoer.";
+        return;
+      }
+
+      let n = BigInt(value);
+      let step = 1;
+      const maxDigits = 1000;
+      const maxSteps = 1000;
+
+      (function iterate(n) {
+        if (step > maxSteps) {
+          output.textContent += `Stap ${step}: Te veel stappen, proces gestopt om oneindige loop te voorkomen.\n`;
+          return;
+        }
+
+        if (n.toString().length > maxDigits) {
+          output.textContent += `Stap ${step}: getal heeft meer dan ${maxDigits} cijfers. Proces gestopt.\n`;
+          return;
+        }
+
+        if (isPrime(n)) {
+          output.textContent += `Stap ${step}: ${n} is een priemgetal. Klaar.\n`;
+          return;
+        }
+
+        const factors = factorize(n);
+        let merged = factors.map(([p, e]) => `${p}${e > 1n ? e : ''}`).join('');
+
+        output.textContent += `Stap ${step}: ${n}\n  ⇒ factorisatie: ${factors.map(([p, e]) => e > 1n ? `${p}^${e}` : `${p}`).join(' × ')}\n  ⇒ samengestelde getal: ${merged} (${merged.length} cijfers)\n\n`;
+
+        step++;
+        iterate(BigInt(merged));
+      })(n);
+    }
+
+    function isPrime(n) {
+      if (n < 2n) return false;
+      if (n === 2n) return true;
+      if (n % 2n === 0n) return false;
+      let d = 3n;
+      while (d * d <= n) {
+        if (n % d === 0n) return false;
+        d += 2n;
+      }
+      return true;
+    }
+
+    function factorize(n) {
+      let factors = [];
+      let d = 2n;
+      while (d * d <= n) {
+        let count = 0n;
+        while (n % d === 0n) {
+          n /= d;
+          count++;
+        }
+        if (count > 0n) factors.push([d, count]);
+        d++;
+      }
+      if (n > 1n) factors.push([n, 1n]);
+      return factors;
+    }
+  </script>
+</body>
+</html>

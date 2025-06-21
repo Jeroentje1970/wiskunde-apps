@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Primenummers & K-Tuplets Finder</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background-color: #f4f4f4;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    #startInput {
+      width: 100%;
+      max-width: 100%;
+      font-family: monospace;
+      font-size: 1.0em;
+      box-sizing: border-box;
+      padding: 8px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      min-height: 2.5em;
+      resize: vertical;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    #digitCount {
+      color: darkred;
+      font-weight: bold;
+      font-size: 1.1em;
+      margin-bottom: 5px;
+      user-select: none;
+    }
+    select, input[type=number] {
+      font-family: monospace;
+      font-size: 1em;
+      padding: 5px;
+      margin-top: 5px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      max-width: 200px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 8px 15px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      border: none;
+      background-color: #4a90e2;
+      color: white;
+      font-size: 1em;
+      margin-right: 10px;
+    }
+    button:active {
+      background-color: #357abd;
+    }
+    #output {
+      background-color: #ddd;
+      padding: 15px;
+      margin-top: 20px;
+      font-size: 0.9em;
+      white-space: pre-wrap;
+      border-radius: 8px;
+      max-width: 100%;
+      overflow-wrap: break-word;
+      font-family: monospace;
+      min-height: 100px;
+    }
+    #conclusion {
+      margin-top: 15px;
+      font-family: monospace;
+      font-weight: normal;
+      font-size: 1.0em;
+      white-space: normal;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Primenummers & K-Tuplets Finder</h2>
+
+<label for="startInput">Voer een getal in (decimaal of wetenschappelijke notatie, bijv. 10^100-100000):</label>
+<div id="digitCount">(0)</div>
+<textarea id="startInput" rows="2" oninput="updateDigitCount()"></textarea>
+
+<label for="typeSelect">Kies wat te vinden:</label>
+<select id="typeSelect">
+  <option value="primes">Gewone priemgetallen</option>
+  <option value="twins">Prime Twins (2-tuplets)</option>
+  <option value="quadruplets">Prime Quadruplets (4-tuplets)</option>
+  <option value="quintuplets">Prime Quintuplets (5-tuplets)</option>
+  <option value="sextuplets">Prime Sextuplets (6-tuplets)</option>
+</select>
+
+<label for="countInput">Aantal te vinden:</label>
+<input type="number" id="countInput" min="1" value="5" />
+
+<div>
+  <button onclick="startSearch()">Zoeken</button>
+  <button onclick="clearAll()">Wissen</button>
+</div>
+
+<pre id="output"></pre>
+<div id="conclusion"></div>
+
+<script>
+// Verbeterde safeEval die werkt met ^, +, - en hele grote getallen
+function safeEval(str) {
+  if (!/^[-+^0-9\s]+$/.test(str)) {
+    throw new Error('Ongeldige karakters in invoer.');
+  }
+  str = str.replace(/\s+/g, '');
+
+  let parts = [];
+  let number = '';
+  for (let i = 0; i < str.length; i++) {
+    if (i === 0 && (str[i] === '+' || str[i] === '-')) {
+      number += str[i];
+    } else if (str[i] === '+' || str[i] === '-') {
+      parts.push(number);
+      number = str[i];
+    } else {
+      number += str[i];
+    }
+  }
+  if (number.length > 0) parts.push(number);
+
+  function evalPower(s) {
+    let [base, exp] = s.split('^');
+    base = BigInt(base);
+    exp = BigInt(exp);
+    return base ** exp;
+  }
+
+  let total = 0n;
+  for (let part of parts) {
+    let val;
+    if (part.includes('^')) {
+      val = evalPower(part);
+    } else {
+      val = BigInt(part);
+    }
+    total += val;
+  }
+  return total;
+}
+
+function modPow(base, exp, mod) {
+  let result = 1n;
+  base %= mod;
+  while (exp > 0n) {
+    if (exp % 2n === 1n) result = (result * base) % mod;
+    base = (base * base) % mod;
+    exp >>= 1n;
+  }
+  return result;
+}
+
+function millerRabin(n) {
+  if (n < 2n) return false;
+  if (n === 2n || n === 3n) return true;
+  if (n % 2n === 0n) return false;
+
+  let d = n - 1n;
+  let r = 0n;
+  while (d % 2n === 0n) {
+    d /= 2n;
+    r++;
+  }
+
+  const bases = [2n, 3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n];
+  for (const a of bases) {
+    if (a >= n - 1n) break;
+    let x = modPow(a, d, n);
+    if (x === 1n || x === n - 1n) continue;
+    let contFlag = false;
+    for (let i = 1n; i < r; i++) {
+      x = (x * x) % n;
+      if (x === n - 1n) {
+        contFlag = true;
+        break;
+      }
+    }
+    if (contFlag) continue;
+    return false;
+  }
+  return true;
+}
+
+function nextPrime(n) {
+  if (n < 2n) return 2n;
+  let candidate = n % 2n === 0n ? n + 1n : n + 2n;
+  while (!millerRabin(candidate)) {
+    candidate += 2n;
+  }
+  return candidate;
+}
+
+function findKTuplets(start, count, type) {
+  let results = [];
+  let candidate = start;
+
+  // Definities offsets van k-tuplets, per https://en.wikipedia.org/wiki/Prime_k-tuplet
+  const tuples = {
+    twins: [0n, 2n],
+    quadruplets: [0n, 2n, 6n, 8n],
+    quintuplets: [0n, 2n, 6n, 8n, 12n],
+    sextuplets: [0n, 4n, 6n, 10n, 12n, 16n]
+  };
+
+  function checkTuple(candidate, offsets) {
+    for (let offset of offsets) {
+      if (!millerRabin(candidate + offset)) return false;
+    }
+    return true;
+  }
+
+  if (type === 'primes') {
+    while (results.length < count) {
+      if (millerRabin(candidate)) results.push(candidate);
+      candidate += 1n;
+    }
+  } else {
+    const offsets = tuples[type];
+    if (!offsets) return results;
+    while (results.length < count) {
+      if (checkTuple(candidate, offsets)) {
+        results.push(offsets.map(o => candidate + o));
+      }
+      candidate += 1n;
+    }
+  }
+  return results;
+}
+
+function updateDigitCount() {
+  let val = document.getElementById('startInput').value.trim();
+
+  // Normaliseer wetenschappelijke notatie en strip niet-cijfers voor telling
+  // We transformeren eerst naar getal en dan naar string zonder exponent:
+  try {
+    // Probeer safeEval om tot BigInt te komen
+    let bigNum = safeEval(val);
+    // Zet om naar string om digitcount te krijgen
+    let digits = bigNum.toString().length;
+    document.getElementById('digitCount').textContent = `(${digits})`;
+  } catch {
+    // Als het niet lukt, fallback naar tellen van alleen cijfers en negatieve tekens
+    let digits = val.replace(/[^0-9]/g, '').length;
+    document.getElementById('digitCount').textContent = `(${digits})`;
+  }
+}
+
+function formatBigInt(n) {
+  return n.toString();
+}
+
+function startSearch() {
+  const output = document.getElementById('output');
+  const conclusion = document.getElementById('conclusion');
+  output.textContent = '';
+  conclusion.textContent = '';
+
+  let startStr = document.getElementById('startInput').value.trim();
+  let count = parseInt(document.getElementById('countInput').value);
+  if (isNaN(count) || count < 1) count = 5;
+
+  let type = document.getElementById('typeSelect').value;
+
+  let startNum;
+  try {
+    startNum = safeEval(startStr);
+  } catch (e) {
+    output.textContent = 'Fout bij inlezen getal: ' + e.message;
+    return;
+  }
+  if (startNum < 2n) startNum = 2n;
+
+  output.textContent = `Zoeken naar ${count} ${type === 'primes' ? 'priemgetallen' : type + ' k-tuplets'} vanaf:\n\n${formatBigInt(startNum)}\n\n`;
+
+  setTimeout(() => {
+    let results = findKTuplets(startNum, count, type);
+    if (type === 'primes') {
+      output.textContent += results.map(n => formatBigInt(n)).join('\n');
+    } else {
+      output.textContent += results.map(arr => arr.map(n => formatBigInt(n)).join(', ')).join('\n');
+    }
+    conclusion.textContent = `Klaar met zoeken van ${count} ${type === 'primes' ? 'priemgetallen' : type + ' k-tuplets'}.`;
+  }, 20);
+}
+
+function clearAll() {
+  document.getElementById('startInput').value = '';
+  document.getElementById('countInput').value = '5';
+  document.getElementById('output').textContent = '';
+  document.getElementById('conclusion').textContent = '';
+  updateDigitCount();
+}
+
+document.getElementById('startInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    startSearch();
+  }
+});
+
+updateDigitCount();
+</script>
+
+</body>
+</html>

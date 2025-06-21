@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Grote Getallen Calculator</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+    }
+
+    .input-wrapper {
+      display: inline-block;
+      padding: 8px;
+      border: 2px solid #ccc;
+      border-radius: 6px;
+      background-color: #f8f8f8;
+      margin-bottom: 10px;
+    }
+
+    input {
+      padding: 6px;
+      font-size: 1em;
+      width: auto;
+      min-width: 300px;
+      max-width: 100%;
+      border: none;
+      background-color: transparent;
+      outline: none;
+    }
+
+    #output {
+      background-color: #f0f0f0;
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      font-size: 0.9em;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 6px 12px;
+      font-size: 0.9em;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+
+    #digitCount {
+      font-size: 0.8em;
+      color: #666;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Grote Getallen Calculator</h2>
+
+  <div class="input-wrapper">
+    <input type="text" id="calcInput" placeholder="Bijv. 3^(1/2), of 23 * 10^7261" oninput="resizeInput(this)">
+  </div>
+
+  <button onclick="calculate()">Bereken</button>
+  <button onclick="clearAll()">Wis</button>
+  <button onclick="copyOutput()">Kopiëer</button>
+
+  <div id="output"></div>
+  <div id="digitCount"></div>
+
+  <script>
+    const input = document.getElementById("calcInput");
+    const output = document.getElementById("output");
+    const digitCount = document.getElementById("digitCount");
+
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") calculate();
+    });
+
+    function resizeInput(el) {
+      el.style.width = ((el.value.length + 1) * 9) + 'px';
+    }
+
+    function clearAll() {
+      input.value = '';
+      resizeInput(input);
+      output.textContent = '';
+      digitCount.textContent = '';
+    }
+
+    function copyOutput() {
+      navigator.clipboard.writeText(output.textContent).then(() => {
+        alert("Output gekopieerd naar klembord!");
+      });
+    }
+
+    // Newton-achtige benadering voor geheelwortel (vierkantswortel van BigInt)
+    function bigintSqrt(n) {
+      if (n < 0n) throw 'Negatieve wortel niet mogelijk';
+      if (n < 2n) return n;
+      let x0 = n;
+      let x1 = (n >> 1n) + 1n;
+      while (x1 < x0) {
+        x0 = x1;
+        x1 = ((n / x1) + x1) >> 1n;
+      }
+      return x0;
+    }
+
+    function calculate() {
+      let expr = input.value.trim();
+      try {
+        // 1. detecteer machtsverheffen met 1/2 als wortel
+        expr = expr.replace(/(\d+)\s*\^\s*\(\s*1\s*\/\s*2\s*\)/g, (_, base) => {
+          return `sqrt(BigInt("${base}"))`;
+        });
+
+        // 2. normale machten zoals 5^3 → BigInt
+        expr = expr.replace(/(\d+)\s*\^\s*(\d+)/g, (_, base, exp) => {
+          return `BigInt("${base}")**BigInt("${exp}")`;
+        });
+
+        // 3. vervang losse getallen naar BigInt (indien nodig)
+        expr = expr.replace(/\b\d+\b/g, (match, offset, string) => {
+          const before = string.slice(0, offset);
+          if (before.endsWith('BigInt("') || before.endsWith('sqrt(BigInt("')) return match;
+          return `BigInt("${match}")`;
+        });
+
+        // 4. definieer sqrt() functie
+        const result = Function(`
+          "use strict";
+          const sqrt = ${bigintSqrt.toString()};
+          return (${expr});
+        `)();
+
+        output.textContent = `Resultaat:\n${result.toString()}`;
+        digitCount.textContent = `(${result.toString().length} cijfers)`;
+      } catch (err) {
+        output.textContent = `Fout in berekening:\n${err.message}`;
+        digitCount.textContent = '';
+      }
+    }
+
+    resizeInput(input);
+  </script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Collatzreeks Visualisatie met BigInt</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      color: #000;
+      margin: 10px;
+    }
+    input#start {
+      width: 100%;
+      font-family: monospace;
+      font-size: 14px;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    }
+    table {
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 20px;
+      line-height: 1.2;
+      width: auto;
+      text-align: left;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 2px 6px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+    .max-row {
+      background-color: #ffe0e0; /* roze */
+    }
+    .below-start-row {
+      background-color: #e0ffe0; /* lichtgroen */
+    }
+    #output {
+      margin-top: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      text-align: left;
+    }
+    label, button {
+      font-size: 14px;
+      margin: 5px 0;
+      display: block;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <h1>Collatzreeks Visualisatie (BigInt ondersteund)</h1>
+
+  <label for="start">Startgetal:</label>
+  <input type="text" id="start" value="27" pattern="[0-9]+" title="Voer een positief geheel getal in">
+
+  <button onclick="genereerCollatz()">Genereer Collatzreeks</button>
+
+  <div id="output">Resultaat verschijnt hier...</div>
+
+  <script>
+    function countDigits(n) {
+      return n.toString().length;
+    }
+
+    function genereerCollatz() {
+      const startStr = document.getElementById("start").value.trim();
+      const output = document.getElementById("output");
+      if (!/^\d+$/.test(startStr) || startStr === "0") {
+        output.innerHTML = "<p>Voer een geldig positief geheel getal in.</p>";
+        return;
+      }
+
+      output.innerHTML = "<p>Bezig met berekenen...</p>";
+
+      setTimeout(() => {
+        let n = BigInt(startStr);
+        const start = n;
+        const sequence = [n];
+        let maxVal = n;
+        let maxIndex = 0;
+        let belowStartIndex = null;
+
+        while (n !== 1n) {
+          if (n % 2n === 0n) {
+            n = n / 2n;
+          } else {
+            n = 3n * n + 1n;
+          }
+          sequence.push(n);
+
+          if (n > maxVal) {
+            maxVal = n;
+            maxIndex = sequence.length - 1;
+          }
+          if (belowStartIndex === null && n < start) {
+            belowStartIndex = sequence.length - 1;
+          }
+        }
+
+        let html = `
+          <table>
+            <tr>
+              <th>Stap</th>
+              <th>Getal</th>
+              <th>Aantal cijfers</th>
+            </tr>
+        `;
+
+        for (let i = 0; i < sequence.length; i++) {
+          const val = sequence[i];
+          let classes = "";
+          if (i === maxIndex) classes = "max-row";
+          else if (i === belowStartIndex) classes = "below-start-row";
+
+          html += `
+            <tr class="${classes}">
+              <td>${i + 1}</td>
+              <td>${val.toString()}</td>
+              <td>${countDigits(val)}</td>
+            </tr>
+          `;
+        }
+        html += "</table>";
+
+        html += `<p>Startgetal: ${start.toString()} — Lengte reeks: ${sequence.length} — Maximaal getal: ${maxVal.toString()} (met ${countDigits(maxVal)} cijfers)</p>`;
+
+        output.innerHTML = html;
+      }, 100);
+    }
+  </script>
+</body>
+</html>

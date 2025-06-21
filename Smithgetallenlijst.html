@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Smithgetallen Zoeker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      color: #000;
+    }
+    table {
+      border-collapse: collapse;
+      width: auto;
+      font-size: 12px;
+      margin-top: 20px;
+      line-height: 1.2;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 2px 6px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+    .smithbroer {
+      background-color: #ffe0e0;
+    }
+    #output {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Smithgetallen Finder</h1>
+
+  <label for="start">Begingetal:</label>
+  <input type="number" id="start" value="1"><br><br>
+
+  <label for="range">Bereik (bijv. 10000):</label>
+  <input type="number" id="range" value="1000"><br><br>
+
+  <button onclick="zoekSmithgetallen()">Zoek Smithgetallen</button>
+
+  <div id="output">Resultaat verschijnt hier...</div>
+
+  <script>
+    function isPrime(n) {
+      if (n < 2) return false;
+      if (n === 2 || n === 3) return true;
+      if (n % 2 === 0 || n % 3 === 0) return false;
+      for (let i = 5; i * i <= n; i += 6) {
+        if (n % i === 0 || n % (i + 2) === 0) return false;
+      }
+      return true;
+    }
+
+    function primeFactors(n) {
+      const factors = {};
+      let d = 2;
+      while (d * d <= n) {
+        while (n % d === 0) {
+          factors[d] = (factors[d] || 0) + 1;
+          n /= d;
+        }
+        d = (d === 2) ? 3 : d + 2;
+      }
+      if (n > 1) {
+        factors[n] = (factors[n] || 0) + 1;
+      }
+      return factors;
+    }
+
+    function formatFactorString(factorObj) {
+      return Object.entries(factorObj)
+        .map(([base, exp]) => exp > 1 ? `${base}<sup>${exp}</sup>` : base)
+        .join(" × ");
+    }
+
+    function digitSum(n) {
+      return n.toString().split('').reduce((sum, d) => sum + parseInt(d), 0);
+    }
+
+    function isSmith(n) {
+      if (isPrime(n)) return false;
+      const sumDigits = digitSum(n);
+      const factorCounts = primeFactors(n);
+      let sumFactorDigits = 0;
+      for (const [base, exp] of Object.entries(factorCounts)) {
+        sumFactorDigits += digitSum(base) * exp;
+      }
+      return sumDigits === sumFactorDigits;
+    }
+
+    function zoekSmithgetallen() {
+      const start = parseInt(document.getElementById("start").value);
+      const range = parseInt(document.getElementById("range").value);
+      const output = document.getElementById("output");
+      output.innerHTML = "<p>Bezig met zoeken...</p>";
+
+      setTimeout(() => {
+        const smithList = [];
+        const smithSet = new Set();
+
+        for (let i = start; i < start + range; i++) {
+          if (isSmith(i)) {
+            smithList.push(i);
+            smithSet.add(i);
+          }
+        }
+
+        let results = `
+          <table>
+            <tr>
+              <th style="width:80px">Smithgetal</th>
+              <th style="width:120px">Priemfactoren</th>
+              <th style="width:60px">Cijfersom</th>
+            </tr>
+        `;
+
+        for (let i = 0; i < smithList.length; i++) {
+          const num = smithList[i];
+          const factors = primeFactors(num);
+          const factorStr = formatFactorString(factors);
+          const sumDigits = digitSum(num);
+          const isBroer = smithSet.has(num - 1) || smithSet.has(num + 1);
+          results += `
+            <tr class="${isBroer ? 'smithbroer' : ''}">
+              <td>${num}</td>
+              <td>${factorStr}</td>
+              <td>${sumDigits}</td>
+            </tr>`;
+        }
+
+        results += "</table>";
+        output.innerHTML = `<p>Gevonden ${smithList.length} Smithgetallen:</p>` + results;
+      }, 100);
+    }
+  </script>
+</body>
+</html>

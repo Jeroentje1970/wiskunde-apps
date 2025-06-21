@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>4n+1 Priemgetal → Som van Twee Kwadraten</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    label, input, button {
+      display: block;
+      margin: 10px 0;
+      font-size: 1em;
+      width: 100%;
+      max-width: 1000px;
+    }
+    input {
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 15px;
+      font-weight: bold;
+    }
+    #output {
+      background: #eee;
+      padding: 20px;
+      margin-top: 20px;
+      white-space: pre;
+      font-family: monospace;
+      border-radius: 8px;
+    }
+    .label-wrapper {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 600px;
+    }
+    .digit-counter {
+      font-size: 1.0em;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Priemgetal 4n+1 → Som van Twee Kwadraten</h2>
+
+<div class="label-wrapper">
+  <label for="startInput">Voer een startgetal in (bijv. 888000000000):</label>
+  <span id="digitCount" class="digit-counter">(12)</span>
+</div>
+<input id="startInput" type="text" value="888000000000" oninput="updateDigitCount()">
+
+<label for="basisInput">Voer de basis in (standaard 2):</label>
+<input id="basisInput" type="number" value="2" min="2">
+
+<button onclick="startProcess()">Bereken</button>
+
+<pre id="output"></pre>
+
+<script>
+function modPow(base, exp, mod) {
+  let result = 1n;
+  base %= mod;
+  while (exp > 0n) {
+    if (exp % 2n === 1n) result = (result * base) % mod;
+    base = (base * base) % mod;
+    exp >>= 1n;
+  }
+  return result;
+}
+
+function isPrime(n) {
+  if (n < 2n) return false;
+  if (n === 2n || n === 3n) return true;
+  if (n % 2n === 0n) return false;
+  const s = 5;
+  let d = n - 1n, r = 0n;
+  while (d % 2n === 0n) {
+    d /= 2n;
+    r++;
+  }
+  loop: for (let i = 0; i < s; i++) {
+    const a = 2n + BigInt(Math.floor(Math.random() * Number(n - 4n)));
+    let x = modPow(a, d, n);
+    if (x === 1n || x === n - 1n) continue;
+    for (let j = 0n; j < r - 1n; j++) {
+      x = (x * x) % n;
+      if (x === n - 1n) continue loop;
+    }
+    return false;
+  }
+  return true;
+}
+
+function findNearestPrime4n1(start) {
+  let up = start, down = start;
+  while (true) {
+    if ((up - 1n) % 4n === 0n && isPrime(up)) return up;
+    if (down > 2n && (down - 1n) % 4n === 0n && isPrime(down)) return down;
+    up++; down--;
+  }
+}
+
+function updateDigitCount() {
+  const val = document.getElementById('startInput').value.trim();
+  const digits = val.replace(/\D/g, '').length;
+  document.getElementById('digitCount').textContent = `(${digits})`;
+}
+updateDigitCount();
+
+function startProcess() {
+  const output = document.getElementById('output');
+  output.textContent = '';
+
+  const start = BigInt(document.getElementById('startInput').value.trim());
+  const basis = BigInt(document.getElementById('basisInput').value.trim() || '2');
+
+  output.textContent += `Zoek dichtstbijzijnde priemgetal van de vorm 4n+1 bij ${start} ...\n`;
+  const p = findNearestPrime4n1(start);
+  output.textContent += `Gevonden priemgetal: ${p}\n\n`;
+
+  const exp = (p - 1n) / 4n;
+  const aInit = modPow(basis, exp, p);
+  output.textContent += `De kwadraatrest van ${basis}^${exp} modulo ${p} is: ${aInit}\n\n`;
+
+  let steps = [];
+  let a = aInit, b = p, step = 1;
+  let solution = null;
+
+  while (b !== 0n) {
+    const q = a / b;
+    const r = a % b;
+    steps.push({ step, a, b, q, r });
+
+    if (r * r + b * b === p) {
+      solution = { r, b };
+      break;
+    }
+    a = b;
+    b = r;
+    step++;
+  }
+
+  const pad = (x, len) => x.toString().padStart(len, ' ');
+  const w = {
+    step: Math.max(...steps.map(s => s.step.toString().length), 4),
+    a: Math.max(...steps.map(s => s.a.toString().length), 1),
+    b: Math.max(...steps.map(s => s.b.toString().length), 1),
+    q: Math.max(...steps.map(s => s.q.toString().length), 1),
+    r: Math.max(...steps.map(s => s.r.toString().length), 1)
+  };
+
+  let table = `${pad("Stap", w.step)} | ${pad("a", w.a)} | ${pad("b", w.b)} | ${pad("q", w.q)} | ${pad("r", w.r)}\n`;
+  table += '-'.repeat(w.step) + '-+-' + '-'.repeat(w.a) + '-+-' + '-'.repeat(w.b) + '-+-' +
+           '-'.repeat(w.q) + '-+-' + '-'.repeat(w.r) + '\n';
+
+  for (const s of steps) {
+    table += `${pad(s.step, w.step)} | ${pad(s.a, w.a)} | ${pad(s.b, w.b)} | ${pad(s.q, w.q)} | ${pad(s.r, w.r)}\n`;
+  }
+
+  output.textContent += table;
+
+  if (solution) {
+    output.textContent += `\nConclusie:\n${p} = ${solution.r}² + ${solution.b}²`;
+  } else {
+    output.textContent += `\nGeen passende som van kwadraten gevonden.`;
+  }
+}
+</script>
+
+</body>
+</html>

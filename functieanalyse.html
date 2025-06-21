@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wiskunde Webapp</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.js"></script>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; max-width: 1100px; }
+    input[type=text] {
+      padding: 8px;
+      margin: 5px 0;
+      width: 100%;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    input[type=number] {
+      padding: 6px;
+      margin: 5px 10px 5px 0;
+      width: 80px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    label { display: block; margin-top: 10px; }
+    button {
+      margin: 15px 0 25px 0;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #grafiek {
+      margin: 0 auto;
+      border: 1px solid #ccc;
+      background: #fff;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+    }
+    #resultaten, #tabel, #uitleg {
+      margin-top: 25px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 100%;
+    }
+    th, td {
+      border: 1px solid #555;
+      padding: 6px;
+      text-align: center;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Wiskunde Webapp</h1>
+
+  <label>Functie 1:
+    <input type="text" id="functie1" placeholder="bijv. 1/3*x^3 - 2*x^2 + 3*x - 1" />
+  </label>
+  <label>Functie 2:
+    <input type="text" id="functie2" placeholder="bijv. -x^2 + 4" />
+  </label>
+
+  <label><strong>Plotgrenzen:</strong></label>
+  <input type="number" id="plotMinX" value="-10" step="0.5" /> X-min
+  <input type="number" id="plotMaxX" value="10" step="0.5" /> X-max
+  <input type="number" id="plotMinY" value="-10" step="0.5" /> Y-min
+  <input type="number" id="plotMaxY" value="10" step="0.5" /> Y-max
+
+  <label><strong>Integratiegrenzen:</strong></label>
+  <input type="number" id="intMin" value="-5" step="0.1" /> a
+  <input type="number" id="intMax" value="5" step="0.1" /> b
+
+  <label><strong>Interpolatiepunten (comma gescheiden, formaat x,y):</strong></label>
+  <input type="text" id="interpolatiePunten" placeholder="bijv. 0,1; 1,2; 2,0" />
+
+  <button onclick="allesUitvoeren()">Voer alles uit</button>
+
+  <div id="grafiek" style="width: 900px; height: 700px;"></div>
+
+  <div id="resultaten"></div>
+  <div id="tabel"></div>
+  <div id="uitleg"></div>
+
+<script>
+  // Functie om functie-string te compileren
+  function parseFunctie(input) {
+    try {
+      return math.compile(input);
+    } catch (err) {
+      alert("Fout in functie: " + input);
+      return null;
+    }
+  }
+
+  // Genereer data punten tussen a en b met stap
+  function genData(expr, a, b, stap = 0.1) {
+    let x = [], y = [];
+    for (let i = a; i <= b; i += stap) {
+      x.push(i);
+      try {
+        let val = expr.evaluate({x: i});
+        y.push((typeof val === 'number' && isFinite(val)) ? val : NaN);
+      } catch {
+        y.push(NaN);
+      }
+    }
+    return { x, y };
+  }
+
+  // Zoek snijpunten met x-as (nulpunten) in interval [a,b]
+  function zoekNulpunten(expr, a, b, stap = 0.01) {
+    let nulpunten = [];
+    for (let x = a; x < b; x += stap) {
+      let y1, y2;
+      try { y1 = expr.evaluate({x: x}); } catch { y1 = NaN; }
+      try { y2 = expr.evaluate({x: x + stap}); } catch { y2 = NaN; }
+      if (!isNaN(y1) && !isNaN(y2) && y1 * y2 < 0) {
+        // Lineair interpoleren nulwaarde
+        let xNull = x - y1 * stap / (y2 - y1);
+        nulpunten.push(parseFloat(xNull.toFixed(6)));
+      }
+    }
+    return nulpunten;
+  }
+
+  // Numerieke integraal met trapeziumregel
+  function integraal(expr, a, b, stappen = 1000) {
+    let dx = (b - a) / stappen;
+    let som = 0;
+    for (let i = 0; i < stappen; i++) {
+      let x1 = a + i * dx;
+      let x2 = x1 + dx;
+      let y1, y2;
+      try { y1 = expr.evaluate({x: x1}); } catch { y1 = 0; }
+      try { y2 = expr.evaluate({x: x2}); } catch { y2 = 0; }
+      if (isNaN(y1)) y1 = 0;
+      if (isNaN(y2)) y2 = 0;
+      som += (y1 + y2) / 2 * dx;
+    }
+    return som;
+  }
+
+  // Interpolatie via matrix (Lagrange/Vandermonde)
+  function interpolatie(punten) {
+    const n = punten.length;
+    if (n < 2) return "";
+    let matrix = [];
+    let vector = [];
+    for (let i = 0; i < n; i++) {
+      let rij = [];
+      for (let j = 0; j < n; j++) {
+        rij.push(Math.pow(punten[i][0], n - j - 1));
+      }
+      matrix.push(rij);
+      vector.push(punten[i][1]);
+    }
+    let coeffs = math.lusolve(matrix, vector).map(r => r[0]);
+    // Maak expressie als string
+    let exprStr = coeffs.map((c, i) => {
+      let macht = n - i - 1;
+      let teken = (c >= 0 && i > 0) ? " + " : " - ";
+      let absC = Math.abs(c);
+      if (macht === 0) return (i === 0 ? c.toFixed(6) : teken + absC.toFixed(6));
+      else if (macht === 1) return (i === 0 ? c.toFixed(6) + "*x" : teken + absC.toFixed(6) + "*x");
+      else return (i === 0 ? c.toFixed(6) + "*x^" + macht : teken + absC.toFixed(6) + "*x^" + macht);
+    }).join("");
+    return exprStr.trim();
+  }
+
+  // Formatteer punten (x,y) netjes
+  function fmtPunt(x, y) {
+    return "(" + x.toFixed(6) + ", " + y.toFixed(6) + ")";
+  }
+
+  // Vind snijpunten tussen twee functies door nulpunten te zoeken van f1-f2
+  function vindSnijpunten(f1, f2, a, b, stap=0.01) {
+    let nulpunten = [];
+    for (let x = a; x < b; x += stap) {
+      let y1, y2;
+      try { y1 = f1.evaluate({x: x}); } catch { y1 = NaN; }
+      try { y2 = f2.evaluate({x: x}); } catch { y2 = NaN; }
+      if (!isNaN(y1) && !isNaN(y2)) {
+        let diff1 = y1 - y2;
+        let diff2;
+        try { diff2 = f1.evaluate({x: x + stap}) - f2.evaluate({x: x + stap}); } catch { diff2 = NaN; }
+        if (!isNaN(diff2) && diff1 * diff2 < 0) {
+          let xNull = x - diff1 * stap / (diff2 - diff1);
+          nulpunten.push(parseFloat(xNull.toFixed(6)));
+        }
+      }
+    }
+    return nulpunten;
+  }
+
+  function allesUitvoeren() {
+    const f1Input = document.getElementById("functie1").value.trim();
+    let f2Input = document.getElementById("functie2").value.trim();
+
+    // Plotgrenzen
+    const plotMinX = parseFloat(document.getElementById("plotMinX").value);
+    const plotMaxX = parseFloat(document.getElementById("plotMaxX").value);
+    const plotMinY = parseFloat(document.getElementById("plotMinY").value);
+    const plotMaxY = parseFloat(document.getElementById("plotMaxY").value);
+
+    // Integratiegrenzen
+    const intMin = parseFloat(document.getElementById("intMin").value);
+    const intMax = parseFloat(document.getElementById("intMax").value);
+
+    // Interpolatiepunten in functie 2 als ingevuld
+    const puntenInput = document.getElementById("interpolatiePunten").value.trim();
+
+    let f1 = parseFunctie(f1Input);
+    if (!f1) return;
+
+    // Als interpolatiepunten gegeven, functie 2 daaruit genereren
+    if (puntenInput.length > 0) {
+      // Parse punten "x,y; x,y; ..."
+      let puntenRaw = puntenInput.split(";").map(s => s.trim()).filter(s => s.length > 0);
+      let punten = [];
+      for (let pr of puntenRaw) {
+        let xy = pr.split(",").map(s => s.trim());
+        if (xy.length === 2) {
+          let xx = parseFloat(xy[0]);
+          let yy = parseFloat(xy[1]);
+          if (!isNaN(xx) && !isNaN(yy)) punten.push([xx, yy]);
+        }
+      }
+      if (punten.length >= 2) {
+        let interpExpr = interpolatie(punten);
+        f2Input = interpExpr;
+        document.getElementById("functie2").value = interpExpr;
+      } else {
+        alert("Voer minstens 2 geldige interpolatiepunten in (x,y).");
+        return;
+      }
+    }
+
+    let f2 = parseFunctie(f2Input);
+    if (!f2) return;
+
+    // Genereer data
+    const stap = 0.05;
+    const data1 = genData(f1, plotMinX, plotMaxX, stap);
+    const data2 = genData(f2, plotMinX, plotMaxX, stap);
+
+    // Snijpunten met x-as
+    const nulF1x = zoekNulpunten(f1, plotMinX, plotMaxX, 0.001);
+    const nulF2x = zoekNulpunten(f2, plotMinX, plotMaxX, 0.001);
+
+    // Snijpunten f1=f2
+    const snijpuntenX = vindSnijpunten(f1, f2, plotMinX, plotMaxX, 0.001);
+
+    // Maak snijpunten (x,y)
+    let snijpuntenXY = snijpuntenX.map(x => {
+      try {
+        return [x, f1.evaluate({x})];
+      } catch {
+        return [x, NaN];
+      }
+    });
+
+    // Integraal f1, f2 en verschil tussen integratiegrenzen
+    const intF1 = integraal(f1, intMin, intMax);
+    const intF2 = integraal(f2, intMin, intMax);
+
+    // Integraal van |f1-f2| (voor oppervlakte tussen curves)
+    // Numeriek integraal van abs(f1-f2)
+    function integraalAbsVerschil(expr1, expr2, a, b, stappen=1000) {
+      let dx = (b - a)/stappen;
+      let som = 0;
+      for(let i=0; i<stappen; i++) {
+        let x1 = a + i*dx;
+        let x2 = x1 + dx;
+        let y1=0,y2=0;
+        try { y1 = expr1.evaluate({x:x1}) - expr2.evaluate({x:x1}); } catch {}
+        try { y2 = expr1.evaluate({x:x2}) - expr2.evaluate({x:x2}); } catch {}
+        y1 = Math.abs(y1);
+        y2 = Math.abs(y2);
+        if (isNaN(y1)) y1 = 0;
+        if (isNaN(y2)) y2 = 0;
+        som += (y1 + y2)/2 * dx;
+      }
+      return som;
+    }
+
+    const intVerschil = integraalAbsVerschil(f1, f2, intMin, intMax);
+
+    // Plot opbouw
+    let traces = [];
+
+    // functie 1 lijn
+    traces.push({
+      x: data1.x,
+      y: data1.y,
+      type: 'scatter',
+      mode: 'lines',
+      name: 'Functie 1',
+      line: {color: 'blue'}
+    });
+
+    // functie 2 lijn
+    traces.push({
+      x: data2.x,
+      y: data2.y,
+      type: 'scatter',
+      mode: 'lines',
+      name: 'Functie 2',
+      line: {color: 'red'}
+    });
+
+    // Gekleurde arcering tussen functies binnen integratiegrenzen
+    // Maak fijn raster spikkels
+    let fillX = [];
+    let fillY = [];
+    let dx = 0.05;
+    for(let x = intMin; x <= intMax; x += dx) {
+      try {
+        fillX.push(x);
+        fillY.push(f1.evaluate({x}));
+      } catch {
+        fillY.push(NaN);
+      }
+    }
+    for(let x = intMax; x >= intMin; x -= dx) {
+      try {
+        fillX.push(x);
+        fillY.push(f2.evaluate({x}));
+      } catch {
+        fillY.push(NaN);
+      }
+    }
+
+    traces.push({
+      x: fillX,
+      y: fillY,
+      fill: 'toself',
+      fillpattern: {
+        shape: ".",
+        fgcolor: "rgba(100,100,100,0.3)",
+        size: 4,
+        solidity: 0.2
+      },
+      line: {width: 0},
+      type: 'scatter',
+      mode: 'lines',
+      name: 'Ingesloten oppervlakte',
+      showlegend: true,
+      hoverinfo: 'skip',
+      marker: {size: 2}
+    });
+
+    // Snijpunten f1=f2 met markers en labels
+    let snijX = snijpuntenXY.map(p => p[0]);
+    let snijY = snijpuntenXY.map(p => p[1]);
+
+    traces.push({
+      x: snijX,
+      y: snijY,
+      mode: 'markers+text',
+      type: 'scatter',
+      name: 'Snijpunten f1=f2',
+      marker: {color: 'green', size: 10, symbol: 'x'},
+      text: snijpuntenXY.map(p => fmtPunt(p[0], p[1])),
+      textposition: 'top center',
+      textfont: {size: 12, color: 'green'}
+    });
+
+    // Snijpunten met x-as functie 1
+    let nulF1y = nulF1x.map(x => {
+      try { return f1.evaluate({x}); } catch { return NaN; }
+    });
+    traces.push({
+      x: nulF1x,
+      y: nulF1y,
+      mode: 'markers+text',
+      type: 'scatter',
+      name: 'Nulpunten f1',
+      marker: {color: 'blue', size: 8, symbol: 'circle'},
+      text: nulF1x.map((x,i) => fmtPunt(x, nulF1y[i])),
+      textposition: 'bottom center',
+      textfont: {size: 11, color: 'blue'}
+    });
+
+    // Snijpunten met x-as functie 2
+    let nulF2y = nulF2x.map(x => {
+      try { return f2.evaluate({x}); } catch { return NaN; }
+    });
+    traces.push({
+      x: nulF2x,
+      y: nulF2y,
+      mode: 'markers+text',
+      type: 'scatter',
+      name: 'Nulpunten f2',
+      marker: {color: 'red', size: 8, symbol: 'circle'},
+      text: nulF2x.map((x,i) => fmtPunt(x, nulF2y[i])),
+      textposition: 'bottom center',
+      textfont: {size: 11, color: 'red'}
+    });
+
+    // Layout met raster en 1:1 verhouding
+    let layout = {
+      width: 900,
+      height: 700,
+      margin: { t: 40, r: 40, b: 40, l: 40 },
+      dragmode: 'pan',
+      yaxis: {
+        range: [plotMinY, plotMaxY],
+        scaleanchor: 'x',
+        scaleratio: 1,
+        zeroline: true,
+        zerolinecolor:'#999',
+        gridcolor: '#ddd',
+        dtick: 1
+      },
+      xaxis: {
+        range: [plotMinX, plotMaxX],
+        zeroline: true,
+        zerolinecolor:'#999',
+        gridcolor: '#ddd',
+        dtick: 1
+      },
+      plot_bgcolor: '#fff',
+      showlegend: true
+    };
+
+    Plotly.newPlot('grafiek', traces, layout, {responsive: true});
+
+    // Resultaten weergeven
+    let resHtml = `<h2>Integralen (tussen ${intMin} en ${intMax}):</h2>`;
+    resHtml += `<p>∫ f1 dx = ${intF1.toFixed(6)}</p>`;
+    resHtml += `<p>∫ f2 dx = ${intF2.toFixed(6)}</p>`;
+    resHtml += `<p>∫ |f1 - f2| dx (oppervlakte) = ${intVerschil.toFixed(6)}</p>`;
+
+    // Snijpunten tonen
+    if (snijpuntenXY.length > 0) {
+      resHtml += `<h3>Snijpunten f1 = f2:</h3><ul>`;
+      snijpuntenXY.forEach(p => {
+        resHtml += `<li>${fmtPunt(p[0], p[1])}</li>`;
+      });
+      resHtml += `</ul>`;
+    } else {
+      resHtml += `<p>Geen snijpunten tussen f1 en f2 gevonden in plotgebied.</p>`;
+    }
+
+    // Nulpunten f1
+    if (nulF1x.length > 0) {
+      resHtml += `<h3>Nulpunten f1 (snij met x-as):</h3><ul>`;
+      nulF1x.forEach((x,i) => {
+        resHtml += `<li>${fmtPunt(x, nulF1y[i])}</li>`;
+      });
+      resHtml += `</ul>`;
+    } else {
+      resHtml += `<p>Geen nulpunten voor f1 gevonden in plotgebied.</p>`;
+    }
+
+    // Nulpunten f2
+    if (nulF2x.length > 0) {
+      resHtml += `<h3>Nulpunten f2 (snij met x-as):</h3><ul>`;
+      nulF2x.forEach((x,i) => {
+        resHtml += `<li>${fmtPunt(x, nulF2y[i])}</li>`;
+      });
+      resHtml += `</ul>`;
+    } else {
+      resHtml += `<p>Geen nulpunten voor f2 gevonden in plotgebied.</p>`;
+    }
+
+    document.getElementById("resultaten").innerHTML = resHtml;
+
+    // Tabel van invoerpunten (indien gegeven)
+    if (puntenInput.length > 0) {
+      let puntenRaw = puntenInput.split(";").map(s => s.trim()).filter(s => s.length > 0);
+      let punten = [];
+      for (let pr of puntenRaw) {
+        let xy = pr.split(",").map(s => s.trim());
+        if (xy.length === 2) {
+          let xx = parseFloat(xy[0]);
+          let yy = parseFloat(xy[1]);
+          if (!isNaN(xx) && !isNaN(yy)) punten.push([xx, yy]);
+        }
+      }
+      if (punten.length > 0) {
+        let tabelHtml = `<h3>Interpolatiepunten:</h3><table><thead><tr><th>Index</th><th>x</th><th>y</th></tr></thead><tbody>`;
+        punten.forEach((p, i) => {
+          tabelHtml += `<tr><td>${i+1}</td><td>${p[0].toFixed(6)}</td><td>${p[1].toFixed(6)}</td></tr>`;
+        });
+        tabelHtml += `</tbody></table>`;
+        document.getElementById("tabel").innerHTML = tabelHtml;
+      } else {
+        document.getElementById("tabel").innerHTML = "";
+      }
+    } else {
+      document.getElementById("tabel").innerHTML = "";
+    }
+
+    // Uitlegfunctie (optioneel)
+    document.getElementById("uitleg").innerHTML = `
+      <h3>Gebruikte methodes:</h3>
+      <p>Numerieke integratie via trapeziumregel.<br>
+      Snijpunten worden gevonden door lineaire interpolatie tussen opeenvolgende punten waar functies van teken wisselen.<br>
+      Interpolatie via matrixoplossing van Vandermonde-systeem.<br>
+      De oppervlakte tussen functies wordt bepaald door integraal van de absolute waarde van het verschil.</p>
+    `;
+  }
+</script>
+
+</body>
+</html>

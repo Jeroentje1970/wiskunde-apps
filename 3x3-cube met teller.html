@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>3x3 Cube Grid</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      margin: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .container {
+      background: #e0e0e0;
+      padding: 20px;
+      border-radius: 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 40px);
+      grid-template-rows: repeat(3, 40px);
+      gap: 2px;
+      margin: 0 auto;
+    }
+
+    .cell {
+      width: 40px;
+      height: 40px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      background: white;
+    }
+
+    .inputs {
+      margin: 20px 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="text"] {
+      font-size: 16px;
+      padding: 6px;
+      width: 500px;
+    }
+
+    button {
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .digitteller {
+      color: darkred;
+      font-weight: bold;
+    }
+
+    .arrows {
+      display: flex;
+      flex-direction: column;
+      margin-left: -5px;
+    }
+
+    .arrows button {
+      width: 30px;
+      height: 20px;
+      padding: 0;
+      font-size: 14px;
+    }
+
+    .colorcounts {
+      margin-top: 20px;
+      font-family: monospace;
+    }
+
+    .color-count-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .color-box {
+      width: 20px;
+      height: 20px;
+      border: 1px solid #999;
+    }
+
+    .count-value {
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .zero {
+      background-color: pink;
+    }
+
+    .max {
+      background-color: lightgreen;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="inputs">
+      <label>Invoergetal:</label>
+      <input id="inputNum" type="text">
+      <div class="arrows">
+        <button onclick="adjustInput(1)">▲</button>
+        <button onclick="adjustInput(-1)">▼</button>
+      </div>
+      <span class="digitteller" id="digitCountIn"></span>
+      <button onclick="clearGrid()">Wissen</button>
+      <button onclick="savePattern()">Opslaan</button>
+      <button onclick="loadPattern()">Ophalen</button>
+      <button onclick="generateRandom()">Random</button>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="inputs">
+      <label>Uitvoergetal:</label>
+      <input id="outputNum" type="text" readonly>
+      <span class="digitteller" id="digitCountOut"></span>
+    </div>
+    <div class="colorcounts">
+      <h4>Kleurentelling:</h4>
+      <div id="colorCounts"></div>
+    </div>
+  </div>
+
+  <script>
+    const colors = ['white', 'yellow', 'orange', 'red', 'blue', 'green'];
+    const grid = document.getElementById('grid');
+    const inputNum = document.getElementById('inputNum');
+    const outputNum = document.getElementById('outputNum');
+    const digitCountIn = document.getElementById('digitCountIn');
+    const digitCountOut = document.getElementById('digitCountOut');
+    const colorCounts = document.getElementById('colorCounts');
+    const size = 3;
+    const totalCells = size * size;
+
+    for (let i = 0; i < totalCells; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.color = '0';
+      cell.addEventListener('click', () => {
+        let current = parseInt(cell.dataset.color);
+        current = (current + 1) % 6;
+        cell.dataset.color = current.toString();
+        cell.style.background = colors[current];
+        updateOutputFromGrid();
+        updateColorCounts();
+      });
+      grid.appendChild(cell);
+    }
+
+    function updateOutputFromGrid() {
+      const cells = Array.from(document.querySelectorAll('.cell'));
+      const base6 = [];
+
+      for (let row = size - 1; row >= 0; row--) {
+        for (let col = size - 1; col >= 0; col--) {
+          const idx = row * size + col;
+          base6.push(cells[idx].dataset.color);
+        }
+      }
+
+      let bigInt = 0n;
+      for (let i = 0; i < base6.length; i++) {
+        bigInt += BigInt(base6[i]) * (6n ** BigInt(i));
+      }
+
+      const final = bigInt + 1n;
+      outputNum.value = final.toString();
+      digitCountOut.textContent = `${final.toString().length} cijfers`;
+    }
+
+    function updateGridFromNumber() {
+      let numStr = inputNum.value.trim();
+      try {
+        let bigInt = BigInt(numStr) - 1n;
+        const base6 = [];
+
+        for (let i = 0; i < totalCells; i++) {
+          base6.push((bigInt % 6n).toString());
+          bigInt /= 6n;
+        }
+
+        const cells = Array.from(document.querySelectorAll('.cell'));
+        let idx = 0;
+        for (let row = size - 1; row >= 0; row--) {
+          for (let col = size - 1; col >= 0; col--) {
+            const cellIdx = row * size + col;
+            const color = parseInt(base6[idx++] || '0');
+            cells[cellIdx].dataset.color = color.toString();
+            cells[cellIdx].style.background = colors[color];
+          }
+        }
+
+        digitCountIn.textContent = `${numStr.length} cijfers`;
+        updateOutputFromGrid();
+        updateColorCounts();
+      } catch (err) {
+        outputNum.value = '';
+        digitCountOut.textContent = '';
+      }
+    }
+
+    function clearGrid() {
+      const cells = Array.from(document.querySelectorAll('.cell'));
+      for (let i = 0; i < totalCells; i++) {
+        cells[i].dataset.color = '0';
+        cells[i].style.background = colors[0];
+      }
+      inputNum.value = '';
+      outputNum.value = '';
+      digitCountIn.textContent = '';
+      digitCountOut.textContent = '';
+      updateColorCounts();
+    }
+
+    function savePattern() {
+      localStorage.setItem('pattern_3x3', inputNum.value.trim());
+      alert("Patroon opgeslagen!");
+    }
+
+    function loadPattern() {
+      const val = localStorage.getItem('pattern_3x3');
+      if (val) {
+        inputNum.value = val;
+        updateGridFromNumber();
+      } else {
+        alert("Geen opgeslagen patroon gevonden.");
+      }
+    }
+
+    function adjustInput(delta) {
+      try {
+        let current = BigInt(inputNum.value.trim());
+        current = current + BigInt(delta);
+        if (current < 1n) current = 1n;
+        inputNum.value = current.toString();
+        updateGridFromNumber();
+      } catch {
+        alert("Ongeldige invoer");
+      }
+    }
+
+    function generateRandom() {
+      const max = 6n ** BigInt(totalCells);
+      const rand = randomBigInt(max - 1n) + 1n;
+      inputNum.value = rand.toString();
+      updateGridFromNumber();
+    }
+
+    function randomBigInt(max) {
+      const bytes = Math.ceil(max.toString(2).length / 8);
+      let rand;
+      do {
+        const arr = crypto.getRandomValues(new Uint8Array(bytes));
+        rand = BigInt('0x' + Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join(''));
+      } while (rand > max);
+      return rand;
+    }
+
+    function updateColorCounts() {
+      const cells = Array.from(document.querySelectorAll('.cell'));
+      const counts = [0, 0, 0, 0, 0, 0];
+      for (let cell of cells) {
+        const colorIndex = parseInt(cell.dataset.color || '0');
+        if (!isNaN(colorIndex)) counts[colorIndex]++;
+      }
+
+      const maxCount = Math.max(...counts);
+
+      let html = '';
+      for (let i = 0; i < colors.length; i++) {
+        const count = counts[i];
+        let classes = 'count-value';
+        if (count === 0) classes += ' zero';
+        if (count === maxCount && maxCount !== 0) classes += ' max';
+
+        html += `
+          <div class="color-count-row">
+            <div class="color-box" style="background:${colors[i]}"></div>
+            <div class="${classes}">${count}</div>
+          </div>`;
+      }
+      colorCounts.innerHTML = html;
+    }
+
+    inputNum.addEventListener('input', updateGridFromNumber);
+    updateColorCounts();
+  </script>
+</body>
+</html>

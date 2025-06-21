@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Dichtstbijzijnde Priemgetallen</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      line-height: 1.5;
+    }
+
+    input[type="text"] {
+      font-size: 1.2em;
+      padding: 8px;
+      width: auto;
+      min-width: 100%;
+      box-sizing: border-box;
+      display: block;
+    }
+
+    textarea {
+      margin-top: 20px;
+      background: #fffde6; /* lichtere pastelgeel */
+      padding: 15px;
+      width: 100%;
+      font-family: monospace;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      resize: none;
+      overflow: hidden;
+    }
+
+    button {
+      margin-top: 10px;
+      margin-right: 10px;
+      padding: 8px 12px;
+      font-size: 1em;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dichtstbijzijnde Priemgetallen</h1>
+  <p>Voer een groot getal in (bijv. <code>7*10^80 - 1</code>):</p>
+  <input type="text" id="input" oninput="autoGrow(this); updateDigitCount()" onkeydown="if(event.key==='Enter') zoekPrimes()" />
+  <div id="digitCount">0 digits</div>
+  <button onclick="zoekPrimes()">Zoek dichtstbijzijnde priemgetallen</button>
+  <button onclick="wisVelden()">Wis invoer</button>
+  <textarea id="output" readonly rows="3"></textarea>
+
+  <script>
+    function autoGrow(input) {
+      input.style.width = '1px';
+      input.style.width = (input.scrollWidth + 10) + 'px';
+    }
+
+    function autoGrowTextarea(el) {
+      el.style.height = "auto";
+      el.style.height = (el.scrollHeight + 5) + "px";
+    }
+
+    function updateDigitCount() {
+      const val = document.getElementById('input').value;
+      try {
+        const n = parseBigIntExpression(val);
+        document.getElementById('digitCount').textContent = n.toString().length + " digits";
+      } catch {
+        document.getElementById('digitCount').textContent = "Ongeldige invoer";
+      }
+    }
+
+    function parseBigIntExpression(expr) {
+      expr = expr.replace(/\^/g, '**');
+      expr = expr.replace(/(\d+)/g, '$1n');
+      return Function('"use strict"; return (' + expr + ')')();
+    }
+
+    function modPow(base, exponent, mod) {
+      base = BigInt(base); exponent = BigInt(exponent); mod = BigInt(mod);
+      let result = 1n;
+      while (exponent > 0n) {
+        if (exponent % 2n === 1n) result = (result * base) % mod;
+        base = (base * base) % mod;
+        exponent /= 2n;
+      }
+      return result;
+    }
+
+    function isProbablyPrime(n, bases = [2n, 3n, 5n, 7n, 11n, 13n, 17n]) {
+      if (n === 2n || n === 3n) return true;
+      if (n < 2n || n % 2n === 0n) return false;
+      let s = 0n, d = n - 1n;
+      while (d % 2n === 0n) { d /= 2n; s++; }
+      for (let a of bases) {
+        if (a >= n - 2n) continue;
+        let x = modPow(a, d, n);
+        if (x === 1n || x === n - 1n) continue;
+        let cont = false;
+        for (let r = 1n; r < s; r++) {
+          x = modPow(x, 2n, n);
+          if (x === n - 1n) { cont = true; break; }
+        }
+        if (!cont) return false;
+      }
+      return true;
+    }
+
+    async function zoekPrimes() {
+      const output = document.getElementById('output');
+      output.value = "Bezig met zoeken...";
+      autoGrowTextarea(output);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      try {
+        const rawInput = document.getElementById('input').value;
+        const n = parseBigIntExpression(rawInput);
+        const digits = n.toString().length;
+
+        let lower = n - 1n;
+        while (!isProbablyPrime(lower)) lower--;
+
+        let upper = n + 1n;
+        while (!isProbablyPrime(upper)) upper++;
+
+        const gap = upper - lower;
+
+        output.value =
+          `Invoergetal: ${n}\nAantal cijfers: ${digits}\n\n` +
+          `Dichtstbijzijnde priemgetal onder n:\n${lower}\n\n` +
+          `Dichtstbijzijnde priemgetal boven n:\n${upper}\n\n` +
+          `Prime gap: ${gap}`;
+      } catch (e) {
+        output.value = "Ongeldige invoer. Gebruik alleen expressies zoals 10^90 of 7*10^80 - 1.";
+      }
+
+      autoGrowTextarea(output);
+    }
+
+    function wisVelden() {
+      document.getElementById('input').value = '';
+      document.getElementById('output').value = '';
+      document.getElementById('digitCount').textContent = '0 digits';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Grootste Prime Gap Zoeken</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    label, input { margin: 5px 0; display: inline-block; }
+    input[type="text"] {
+      font-family: monospace;
+      font-size: 1em;
+      min-width: 10ch;
+      width: auto;
+    }
+    .digit-counter { margin-left: 10px; color: #666; font-size: 0.9em; }
+    #resultaat {
+      margin-top: 20px;
+      line-height: 1.6;
+      font-size: 0.95em;
+    }
+    .prime-list {
+      margin-top: 20px;
+      line-height: 1.6;
+      background-color: #f0f0f0;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.95em;
+      font-family: monospace;
+    }
+    .highlight {
+      background-color: #d4f4dd;
+      color: black;
+      padding: 3px 6px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Zoek grootste prime gap in een gebied</h2>
+
+  <label>Begingetal:</label>
+  <input type="text" id="start" value="12000000000000" oninput="adjustWidth(this); updateCounter('start')">
+  <span class="digit-counter" id="start-counter">13 cijfers</span><br>
+
+  <label>Zoekgebied (bijvoorbeeld 10000):</label>
+  <input type="text" id="range" value="10000" oninput="adjustWidth(this); updateCounter('range')">
+  <span class="digit-counter" id="range-counter">5 cijfers</span><br><br>
+
+  <button onclick="zoekPrimeGap()">Zoek grootste prime gap</button>
+
+  <div id="resultaat"></div>
+  <div class="prime-list" id="alle-priemen"></div>
+
+  <script>
+    function updateCounter(id) {
+      const input = document.getElementById(id).value;
+      const counter = document.getElementById(id + '-counter');
+      const digits = input.replace(/\D/g, '').length;
+      counter.textContent = `${digits} cijfer${digits === 1 ? '' : 's'}`;
+    }
+
+    function adjustWidth(el) {
+      const length = el.value.length;
+      el.style.width = (length + 1) + 'ch';
+    }
+
+    function modPow(base, exponent, modulus) {
+      let result = 1n;
+      base = base % modulus;
+      while (exponent > 0) {
+        if (exponent % 2n === 1n)
+          result = (result * base) % modulus;
+        exponent = exponent / 2n;
+        base = (base * base) % modulus;
+      }
+      return result;
+    }
+
+    function isProbablyPrime(n, k = 5) {
+      if (n === 2n || n === 3n) return true;
+      if (n < 2n || n % 2n === 0n) return false;
+
+      let d = n - 1n;
+      let r = 0n;
+      while (d % 2n === 0n) {
+        d /= 2n;
+        r += 1n;
+      }
+
+      testLoop:
+      for (let i = 0; i < k; i++) {
+        const a = 2n + BigInt(Math.floor(Math.random() * Number(n - 4n)));
+        let x = modPow(a, d, n);
+        if (x === 1n || x === n - 1n) continue;
+
+        for (let j = 0n; j < r - 1n; j++) {
+          x = modPow(x, 2n, n);
+          if (x === n - 1n) continue testLoop;
+        }
+        return false;
+      }
+      return true;
+    }
+
+    function zoekPrimeGap() {
+      const start = BigInt(document.getElementById('start').value);
+      const range = BigInt(document.getElementById('range').value);
+      const einde = start + range;
+
+      const primes = [];
+      for (let n = start; n <= einde; n++) {
+        if (isProbablyPrime(n)) {
+          primes.push(n);
+        }
+      }
+
+      let grootsteGap = 0n;
+      let prime1 = 0n, prime2 = 0n;
+      for (let i = 0; i < primes.length - 1; i++) {
+        const gap = primes[i + 1] - primes[i];
+        if (gap > grootsteGap) {
+          grootsteGap = gap;
+          prime1 = primes[i];
+          prime2 = primes[i + 1];
+        }
+      }
+
+      const resDiv = document.getElementById('resultaat');
+      if (grootsteGap > 0n) {
+        resDiv.innerHTML = `
+          Grootste prime gap: <strong>${grootsteGap}</strong><br>
+          Van: <strong>${prime1}</strong><br>
+          Tot: <strong>${prime2}</strong><br>
+          Aantal priemgetallen in dit bereik: <strong>${primes.length}</strong>
+        `;
+      } else {
+        resDiv.innerHTML = "Geen priemgetallen of prime gaps gevonden in dit bereik.";
+      }
+
+      const allePriemen = primes.map(p => {
+        if (p === prime1 || p === prime2) {
+          return `<span class="highlight">${p}</span>`;
+        } else {
+          return p;
+        }
+      });
+
+      document.getElementById('alle-priemen').innerHTML =
+        "<strong>Priemgetallen in dit bereik:</strong><br>" + allePriemen.join(', ');
+    }
+  </script>
+</body>
+</html>

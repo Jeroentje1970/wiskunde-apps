@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>4n+1 Priemgetal → Som van Twee Kwadraten</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    label, input, select, button {
+      font-family: monospace;
+      font-size: 1.4em;
+    }
+    input {
+      padding: 6px;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    select {
+      padding: 6px;
+      box-sizing: border-box;
+      max-width: 120px;
+    }
+    button {
+      padding: 6px 10px;
+      font-size: 0.9em;
+      margin-top: 6px;
+      max-width: 150px;
+      margin-right: 10px;
+    }
+    #output {
+      background: #ddd;
+      padding: 20px;
+      margin-top: 20px;
+      white-space: pre;
+      font-family: monospace;
+      border-radius: 8px;
+      overflow-x: auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .digit-counter {
+      font-size: 1.05em;
+      color: #800000;
+      margin-bottom: 3px;
+    }
+    .input-section {
+      margin-bottom: 16px;
+      width: 100%;
+    }
+    .highlight-prime {
+      background-color: #ffd6e7;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .highlight-rest {
+      background-color: #d6ffd6;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    #conclusion {
+      margin-top: 30px;
+      font-size: 1.4em;
+      font-family: monospace;
+      font-weight: normal;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Priemgetal 4n+1 → som van twee kwadraten</h2>
+
+<div class="input-section">
+  <div class="digit-counter" id="digitCount">(12 cijfers)</div>
+  <label for="startInput">Startgetal:</label>
+  <input id="startInput" type="text" value="888000000000" oninput="updateDigitCount()">
+</div>
+
+<div class="input-section">
+  <label for="basisInput">Kies basis (priemgetallen 2–100):</label>
+  <select id="basisInput">
+    <script>
+      const primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47,
+                      53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
+      document.write(primes.map(p => `<option value="${p}">${p}</option>`).join(''));
+    </script>
+  </select>
+</div>
+
+<button onclick="startProcess()">Bereken</button>
+<button onclick="clearInput()">Wissen</button>
+
+<pre id="output"></pre>
+<div id="conclusion"></div>
+
+<script>
+function modPow(base, exp, mod) {
+  let result = 1n;
+  base %= mod;
+  while (exp > 0n) {
+    if (exp % 2n === 1n) result = (result * base) % mod;
+    base = (base * base) % mod;
+    exp >>= 1n;
+  }
+  return result;
+}
+
+function isPrime(n) {
+  if (n < 2n) return false;
+  if (n === 2n || n === 3n) return true;
+  if (n % 2n === 0n) return false;
+  const s = 5;
+  let d = n - 1n, r = 0n;
+  while (d % 2n === 0n) {
+    d /= 2n;
+    r++;
+  }
+  loop: for (let i = 0; i < s; i++) {
+    const a = 2n + BigInt(Math.floor(Math.random() * Number(n - 4n)));
+    let x = modPow(a, d, n);
+    if (x === 1n || x === n - 1n) continue;
+    for (let j = 0n; j < r - 1n; j++) {
+      x = (x * x) % n;
+      if (x === n - 1n) continue loop;
+    }
+    return false;
+  }
+  return true;
+}
+
+function findNearestPrime4n1(start) {
+  let up = start, down = start;
+  while (true) {
+    if ((up - 1n) % 4n === 0n && isPrime(up)) return up;
+    if (down > 2n && (down - 1n) % 4n === 0n && isPrime(down)) return down;
+    up++; down--;
+  }
+}
+
+function updateDigitCount() {
+  const val = document.getElementById('startInput').value.trim();
+  const digits = val.replace(/\D/g, '').length;
+  document.getElementById('digitCount').textContent = `(${digits} cijfers)`;
+}
+
+updateDigitCount();
+
+function startProcess() {
+  const output = document.getElementById('output');
+  const conclusion = document.getElementById('conclusion');
+  output.textContent = '';
+  conclusion.innerHTML = '';
+
+  const start = BigInt(document.getElementById('startInput').value.trim());
+  const basis = BigInt(document.getElementById('basisInput').value);
+
+  const p = findNearestPrime4n1(start);
+  const exp = (p - 1n) / 4n;
+  const aInit = modPow(basis, exp, p);
+
+  output.innerHTML += `Dichtstbijzijnde priemgetal van de vorm 4n+1 bij ${start}\n`;
+  output.innerHTML += `Gevonden priemgetal: <span class="highlight-prime">${p}</span>\n\n`;
+  output.innerHTML += `De kwadraatrest van ${basis}^${exp} modulo ${p} is: <span class="highlight-rest">${aInit}</span>\n\n`;
+
+  let steps = [];
+  let a = aInit, b = p, step = 1;
+  let solution = null;
+
+  while (b !== 0n) {
+    const q = a / b;
+    const r = a % b;
+    steps.push({ step, a, b, q, r });
+
+    if (r * r + b * b === p) {
+      solution = { r, b };
+      break;
+    }
+    a = b;
+    b = r;
+    step++;
+  }
+
+  const pad = (x, len) => x.toString().padStart(len, ' ');
+  const w = {
+    step: Math.max(...steps.map(s => s.step.toString().length), 4),
+    a: Math.max(...steps.map(s => s.a.toString().length), 1),
+    b: Math.max(...steps.map(s => s.b.toString().length), 1),
+    q: Math.max(...steps.map(s => s.q.toString().length), 1),
+    r: Math.max(...steps.map(s => s.r.toString().length), 1)
+  };
+
+  let table = `${pad("Stap", w.step)} | ${pad("a", w.a)} | ${pad("b", w.b)} | ${pad("q", w.q)} | ${pad("r", w.r)}\n`;
+  table += '-'.repeat(w.step) + '-+-' + '-'.repeat(w.a) + '-+-' + '-'.repeat(w.b) + '-+-' +
+           '-'.repeat(w.q) + '-+-' + '-'.repeat(w.r) + '\n';
+
+  for (const s of steps) {
+    table += `${pad(s.step, w.step)} | ${pad(s.a, w.a)} | ${pad(s.b, w.b)} | ${pad(s.q, w.q)} | ${pad(s.r, w.r)}\n`;
+  }
+
+  output.innerHTML += table;
+
+  if (solution) {
+    conclusion.innerHTML = `Conclusie:<br>${p} = ${solution.r}² + ${solution.b}²`;
+  } else {
+    conclusion.innerHTML = `Conclusie:<br>Geef andere basis op...`;
+  }
+}
+
+function clearInput() {
+  document.getElementById('startInput').value = '';
+  document.getElementById('output').textContent = '';
+  document.getElementById('conclusion').innerHTML = '';
+  updateDigitCount();
+}
+
+document.getElementById('startInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startProcess();
+});
+document.getElementById('basisInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startProcess();
+});
+</script>
+
+</body>
+</html>

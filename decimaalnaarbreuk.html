@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Repeterende Decimaal en Breuk Calculator</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+
+    textarea, input[type="text"] {
+      width: 100%;
+      font-size: 1.2em;
+      padding: 8px;
+      box-sizing: border-box;
+      border: 2px solid #ccc;
+      border-radius: 6px;
+      resize: none;
+      text-align: left;
+    }
+
+    #output-container, #decimal-output-container {
+      margin-top: 20px;
+      background-color: #d9f8d3;
+      padding: 20px;
+      border-radius: 12px;
+      width: 100%;
+      min-height: 80px;
+      box-sizing: border-box;
+      font-size: 1.2em;
+      font-family: monospace;
+      user-select: all;
+      text-align: left;
+      overflow-wrap: break-word;
+    }
+
+    .fraction {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+      font-family: monospace;
+      font-size: 1.3em;
+      user-select: all;
+      line-height: 1.2em;
+    }
+
+    .numerator, .denominator {
+      white-space: nowrap;
+      padding: 0 4px;
+    }
+
+    .line {
+      border-top: 2px solid black;
+      margin: 0.15em 0;
+    }
+
+    .digit-counts {
+      margin-top: 12px;
+      font-size: 0.7em;
+      color: #333;
+      font-family: sans-serif;
+      user-select: none;
+    }
+
+    .prime {
+      color: #8B0000;
+    }
+
+    button {
+      margin-top: 10px;
+      margin-right: 10px;
+      padding: 8px 16px;
+      font-size: 1em;
+      border-radius: 6px;
+      border: none;
+      background-color: #4caf50;
+      color: white;
+      cursor: pointer;
+    }
+
+    button.clear {
+      background-color: #f44336;
+    }
+
+    hr {
+      margin: 40px 0;
+      border: none;
+      border-top: 2px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Repeterende Decimaal naar Breuk Calculator</h2>
+<textarea id="input" rows="2" placeholder="Bijv: 0.545p8526119"></textarea>
+<div>
+  <button onclick="calculate()">Bereken</button>
+  <button class="clear" onclick="clearAll()">Wis</button>
+</div>
+<div id="output-container">
+  <div id="output"></div>
+</div>
+
+<hr />
+
+<h2>Breuk naar Repeterende Decimaal</h2>
+<input type="text" id="fractionInput" placeholder="Bijv: 2729262787/4999999500" />
+<div>
+  <button onclick="calculateDecimal()">Bereken</button>
+  <button class="clear" onclick="clearFraction()">Wis</button>
+</div>
+<div id="decimal-output-container">
+  <div id="decimalOutput"></div>
+</div>
+
+<script>
+function gcd(a, b) {
+  while (b !== 0n) [a, b] = [b, a % b];
+  return a;
+}
+
+function isPrimeBigInt(n, k = 5) {
+  if (n < 2n) return false;
+  if (n === 2n || n === 3n) return true;
+  if (n % 2n === 0n) return false;
+  let r = 0n, d = n - 1n;
+  while (d % 2n === 0n) { d /= 2n; r++; }
+
+  function modPow(base, exp, mod) {
+    let result = 1n;
+    base %= mod;
+    while (exp > 0n) {
+      if (exp % 2n === 1n) result = (result * base) % mod;
+      exp >>= 1n;
+      base = (base * base) % mod;
+    }
+    return result;
+  }
+
+  function tryComposite(a) {
+    let x = modPow(a, d, n);
+    if (x === 1n || x === n - 1n) return false;
+    for (let i = 0n; i < r - 1n; i++) {
+      x = modPow(x, 2n, n);
+      if (x === n - 1n) return false;
+    }
+    return true;
+  }
+
+  for (let i = 0; i < k; i++) {
+    const a = 2n + BigInt(Math.floor(Math.random() * (Number(n - 4n))));
+    if (tryComposite(a)) return false;
+  }
+  return true;
+}
+
+function parseRepeatingDecimal(input) {
+  const match = input.match(/^(\d*)\.(\d*)p(\d+)$/);
+  if (!match) return null;
+  const [_, intPart = '0', nonRepeat, repeat] = match;
+  const n = nonRepeat.length, r = repeat.length;
+  const fullNum = BigInt(intPart + nonRepeat + repeat);
+  const nonRepeatNum = BigInt(intPart + nonRepeat || '0');
+  const numerator = fullNum - nonRepeatNum;
+  const denominator = BigInt('1' + '0'.repeat(n + r)) - BigInt('1' + '0'.repeat(n));
+  const divisor = gcd(numerator, denominator);
+  return { num: numerator / divisor, den: denominator / divisor };
+}
+
+function renderFraction(fraction) {
+  const num = fraction.num.toString();
+  const den = fraction.den.toString();
+  const numClass = isPrimeBigInt(fraction.num) ? 'prime' : '';
+  const denClass = isPrimeBigInt(fraction.den) ? 'prime' : '';
+  return `
+    <div class="fraction">
+      <div class="numerator ${numClass}" id="numerator">${num}</div>
+      <div class="line" id="fraction-line"></div>
+      <div class="denominator ${denClass}" id="denominator">${den}</div>
+    </div>
+    <div class="digit-counts">
+      Teller: ${num.length} cijfers<br>
+      Noemer: ${den.length} cijfers
+    </div>`;
+}
+
+function calculate() {
+  const input = document.getElementById('input').value.trim();
+  const result = parseRepeatingDecimal(input);
+  const outputDiv = document.getElementById('output');
+  if (!result) {
+    outputDiv.innerHTML = '<div style="color: red;">Ongeldige invoer. Gebruik bijv: 0.545p8526119</div>';
+    return;
+  }
+  outputDiv.innerHTML = renderFraction(result);
+  const numerator = document.getElementById('numerator');
+  const denominator = document.getElementById('denominator');
+  const line = document.getElementById('fraction-line');
+  if (numerator && denominator && line) {
+    const width = Math.max(numerator.offsetWidth, denominator.offsetWidth);
+    line.style.width = `${width}px`;
+  }
+}
+
+function clearAll() {
+  document.getElementById('input').value = '';
+  document.getElementById('output').innerHTML = '';
+}
+
+document.getElementById('input').addEventListener('input', function () {
+  this.style.height = 'auto';
+  this.style.height = this.scrollHeight + 'px';
+});
+
+document.getElementById('input').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    calculate();
+  }
+});
+
+function calculateDecimal() {
+  const input = document.getElementById('fractionInput').value.trim();
+  const output = document.getElementById('decimalOutput');
+  const parts = input.split('/');
+  if (parts.length !== 2) {
+    output.innerHTML = '<div style="color:red;">Ongeldige invoer. Gebruik bijv: 2729262787/4999999500</div>';
+    return;
+  }
+  try {
+    const numerator = BigInt(parts[0]);
+    const denominator = BigInt(parts[1]);
+    if (denominator === 0n) {
+      output.innerHTML = '<div style="color:red;">De noemer mag niet 0 zijn.</div>';
+      return;
+    }
+    output.innerHTML = fractionToRepeatingDecimal(numerator, denominator);
+  } catch {
+    output.innerHTML = '<div style="color:red;">Ongeldige invoer. Gebruik getallen voor teller en noemer.</div>';
+  }
+}
+
+function fractionToRepeatingDecimal(numerator, denominator) {
+  const intPart = numerator / denominator;
+  let remainder = numerator % denominator;
+  if (remainder === 0n) return `<strong>${intPart}.0</strong> (geen repeterend deel)`;
+
+  let decimals = '', seen = {}, index = 0, repeatingStart = -1;
+  while (remainder !== 0n) {
+    if (seen[remainder]) {
+      repeatingStart = seen[remainder];
+      break;
+    }
+    seen[remainder] = index;
+    remainder *= 10n;
+    decimals += (remainder / denominator).toString();
+    remainder %= denominator;
+    if (++index > 2000) break;
+  }
+  if (repeatingStart === -1) return `<strong>${intPart}.${decimals}</strong>`;
+  const nonRepeating = decimals.slice(0, repeatingStart);
+  const repeating = decimals.slice(repeatingStart);
+  return `<strong>${intPart}.${nonRepeating}p${repeating}</strong> (${repeating.length} cijfers)`;
+}
+
+function clearFraction() {
+  document.getElementById('fractionInput').value = '';
+  document.getElementById('decimalOutput').innerHTML = '';
+}
+
+document.getElementById('fractionInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    calculateDecimal();
+  }
+});
+</script>
+
+</body>
+</html>
