@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>BigInt Teller met Miller-Rabin</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    input[type="text"], input[type="number"] {
+      font-size: 1.2em;
+      padding: 6px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      transition: width 0.2s;
+    }
+    button {
+      font-size: 1em;
+      margin-top: 10px;
+      margin-right: 10px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    button:disabled {
+      background-color: #aaa;
+      cursor: not-allowed;
+    }
+    #output {
+      font-size: 1.8em;
+      margin-top: 20px;
+    }
+    #output.prime {
+      color: darkred;
+    }
+  </style>
+</head>
+<body>
+
+  <label>Startgetal:
+    <input type="text" id="start" value="20000" oninput="updateStartField()" />
+    <span id="digitCount">5 digits</span>
+  </label><br>
+
+  <label>Stapgrootte:
+    <input type="number" id="step" value="-3" />
+  </label><br>
+
+  <label>Interval (seconden):
+    <input type="number" id="interval" value="1" step="0.1" />
+  </label><br>
+
+  <button onclick="toggleRun()" id="runBtn">⏹ Stop</button>
+  <button onclick="resetAll()" id="resetBtn" disabled>🗑 Wis</button>
+
+  <div id="output">20000</div>
+
+  <script>
+    const startField = document.getElementById('start');
+    const stepField = document.getElementById('step');
+    const intervalField = document.getElementById('interval');
+    const output = document.getElementById('output');
+    const digitCount = document.getElementById('digitCount');
+    const runBtn = document.getElementById('runBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    let timer = null;
+    let running = true;
+    let currentValue = BigInt(startField.value || 0);
+
+    function updateStartField() {
+      const val = startField.value;
+      digitCount.textContent = val.length + ' digits';
+      startField.style.width = (val.length * 14 + 40) + 'px';
+      currentValue = BigInt(val || 0);
+      updateOutput();
+    }
+
+    // Miller-Rabin priemtest
+    function isPrime(n, k = 5) {
+      if (n === 2n || n === 3n) return true;
+      if (n < 2n || n % 2n === 0n) return false;
+
+      // schrijf n-1 als 2^r * d
+      let r = 0n;
+      let d = n - 1n;
+      while (d % 2n === 0n) {
+        d /= 2n;
+        r += 1n;
+      }
+
+      WitnessLoop:
+      for (let i = 0; i < k; i++) {
+        const a = 2n + BigInt(Math.floor(Math.random() * (Number(n - 4n)))) % (n - 4n);
+        let x = modPow(a, d, n);
+        if (x === 1n || x === n - 1n) continue;
+
+        for (let j = 0n; j < r - 1n; j++) {
+          x = modPow(x, 2n, n);
+          if (x === n - 1n) continue WitnessLoop;
+        }
+        return false;
+      }
+      return true;
+    }
+
+    function modPow(base, exp, mod) {
+      let result = 1n;
+      base = base % mod;
+      while (exp > 0n) {
+        if (exp % 2n === 1n) result = (result * base) % mod;
+        exp = exp / 2n;
+        base = (base * base) % mod;
+      }
+      return result;
+    }
+
+    function updateOutput() {
+      output.textContent = currentValue.toString();
+      output.classList.toggle('prime', isPrime(currentValue));
+    }
+
+    function tick() {
+      if (!running) return;
+      const step = BigInt(stepField.value || 0);
+      const delay = parseFloat(intervalField.value) * 1000;
+      currentValue += step;
+      updateOutput();
+      if (delay > 0) {
+        timer = setTimeout(tick, delay);
+      }
+    }
+
+    function startTimer() {
+      if (timer) clearTimeout(timer);
+      if (running && parseFloat(intervalField.value) > 0) {
+        tick();
+      }
+    }
+
+    function toggleRun() {
+      running = !running;
+      runBtn.textContent = running ? '⏹ Stop' : '▶ Hervat';
+      resetBtn.disabled = running;
+      startTimer();
+    }
+
+    function resetAll() {
+      if (running) return; // Alleen als gestopt
+      if (timer) clearTimeout(timer);
+      startField.value = '';
+      stepField.value = '';
+      intervalField.value = '';
+      output.textContent = '';
+      digitCount.textContent = '0 digits';
+      startField.style.width = '80px';
+      currentValue = 0n;
+    }
+
+    // Listeners
+    stepField.addEventListener('input', () => {
+      if (running) startTimer();
+    });
+    intervalField.addEventListener('input', () => {
+      if (running) startTimer();
+    });
+    startField.addEventListener('input', () => {
+      updateStartField();
+      if (running) startTimer();
+    });
+
+    // Initieel
+    updateStartField();
+    startTimer();
+  </script>
+
+</body>
+</html>
