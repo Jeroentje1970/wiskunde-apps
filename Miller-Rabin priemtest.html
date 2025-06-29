@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Miller-Rabin Primaliteitstest</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+      text-align: left;
+    }
+    input[type="text"] {
+      font-size: 1.1em;
+      padding: 5px;
+      width: auto;
+      min-width: 250px;
+      max-width: 90%;
+    }
+    input[type="number"] {
+      font-size: 1.1em;
+      padding: 5px;
+      width: 60px;
+    }
+    #digitCount {
+      margin-left: 10px;
+      font-weight: bold;
+    }
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+    textarea {
+      margin-top: 20px;
+      width: 90%;
+      height: 400px;
+      font-family: monospace;
+      font-size: 0.95em;
+      background-color: #fffde7; /* Lichter pastelgeel */
+      border: 1px solid #ccc;
+      padding: 10px;
+      white-space: pre-wrap;
+      resize: vertical;
+    }
+  </style>
+</head>
+<body>
+  <h2>Miller-Rabin Primaliteitstest</h2>
+  <label for="numberInput">Voer een groot oneven getal in:</label><br>
+  <input type="text" id="numberInput" />
+  <input type="number" id="numberStepper" value="1" step="2" />
+  <span id="digitCount">(0 cijfers)</span><br>
+  <button onclick="startTest()">Test op primaliteit</button>
+
+  <textarea id="output" readonly placeholder="Resultaten verschijnen hier..."></textarea>
+
+  <script>
+    const numberInput = document.getElementById('numberInput');
+    const numberStepper = document.getElementById('numberStepper');
+    const digitCount = document.getElementById('digitCount');
+    const output = document.getElementById('output');
+
+    numberInput.addEventListener('input', updateInputUI);
+    numberInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        startTest();
+        e.preventDefault();
+      }
+    });
+
+    numberStepper.addEventListener('input', () => {
+      let value = numberInput.value.trim();
+      if (/^\d+$/.test(value)) {
+        let n = BigInt(value);
+        n += 2n;
+        numberInput.value = n.toString();
+        updateInputUI();
+        startTest();
+      }
+    });
+
+    function updateInputUI() {
+      digitCount.textContent = `(${numberInput.value.length} cijfers)`;
+      numberInput.style.width = Math.max(250, numberInput.value.length * 12) + 'px';
+    }
+
+    function startTest() {
+      output.value = "";
+      let value = numberInput.value.trim();
+      if (!/^\d+$/.test(value)) {
+        output.value = "Ongeldige invoer. Gebruik alleen cijfers.";
+        return;
+      }
+
+      let n = BigInt(value);
+      let steps = [];
+
+      if (isProbablyPrime(n, steps)) {
+        steps.push(`\n**Conclusie: ${n} is waarschijnlijk priem.**`);
+      } else {
+        steps.push(`\nConclusie: ${n} is samengesteld.`);
+      }
+
+      output.value = steps.join("\n");
+    }
+
+    function modPow(base, exponent, modulus) {
+      base = base % modulus;
+      let result = 1n;
+      while (exponent > 0n) {
+        if (exponent % 2n === 1n) result = (result * base) % modulus;
+        base = (base * base) % modulus;
+        exponent /= 2n;
+      }
+      return result;
+    }
+
+    function isProbablyPrime(n, stepsOut, bases = [2n, 3n, 5n, 7n, 11n, 13n, 17n]) {
+      if (n < 2n) return false;
+      if (n === 2n || n === 3n) return true;
+      if (n % 2n === 0n) return false;
+
+      let d = n - 1n;
+      let s = 0;
+      while (d % 2n === 0n) {
+        d /= 2n;
+        s++;
+      }
+      stepsOut.push(`We schrijven n-1 = 2^${s} * ${d}`);
+
+      for (let a of bases) {
+        if (a >= n - 2n) continue;
+        let x = modPow(a, d, n);
+        stepsOut.push(`\na = ${a}, x = a^d mod n = ${x}`);
+
+        if (x === 1n || x === n - 1n) {
+          stepsOut.push("x is 1 of n-1 → mogelijk priem voor deze a.");
+          continue;
+        }
+
+        let isComposite = true;
+        for (let r = 1; r < s; r++) {
+          x = modPow(x, 2n, n);
+          stepsOut.push(`r = ${r}, x^2 mod n = ${x}`);
+          if (x === n - 1n) {
+            stepsOut.push("x werd n-1 → mogelijk priem voor deze a.");
+            isComposite = false;
+            break;
+          }
+        }
+
+        if (isComposite) {
+          stepsOut.push("Geen enkele x werd n-1 → samengesteld.");
+          return false;
+        }
+      }
+
+      stepsOut.push("\nAlle a's geslaagd → waarschijnlijk priem.");
+      return true;
+    }
+  </script>
+</body>
+</html>
