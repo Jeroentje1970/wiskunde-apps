@@ -28,6 +28,6 @@ O ja, voor ik het vergeet, de Rubik's kubussen zijn ook een liefhebberij. Ik heb
 kleuren. Soms krijg je met de kubussen mooie combinaties van kleuren, en een 6x6 kubus heeft met één vlak al 6^36 (= ca. 10^28) mogelijke kleurencombinaties, tenminste als je dit vlak niet kantelt. Doe je dat 
 wel dan zijn er symmetriëen die op hetzelfde patroon uitkomen. In de wiskunde heet dit groepentheorie, ook interessant. 
 Het oplossen van in de war gedraaide kubussen vind ik ook een uitdaging, het lukt me nu om de 3x3 kubus in ruim een minuut op te lossen en de 6x6 in 10-15 minuten. Ben dus absoluut geen speedcuber maar ik heb er gewoon lol in. Het fascineert me dat een 6x6 kubus ruim 10^116 draaicombinaties heeft (een getal van 117 cijfers), 
-dat is veel meer dan het aantal deeltjes in het heelal! Gigantisch veel meer zelfs. Dit blijft mij boeien, dat met zo'n relatief klein stukje speelgoed zo ontzettend veel moegelijkheden te bereiken zijn. Dit is in de wiskunde de tak van de combinatoriek en de al eerder genoemde groepentheorie.
+dat is veel meer dan het aantal deeltjes in het heelal! Gigantisch veel meer zelfs. Dit blijft mij boeien, dat met zo'n relatief klein stukje speelgoed zo ontzettend veel mogelijkheden te bereiken zijn. Dit is in de wiskunde de tak van de combinatoriek en de al eerder genoemde groepentheorie.
 Nou tot zover, ik moet voorkomen dat dit een lang verhaal gaat worden.
 Probeer de bestandjes maar eens uit. Veel plezier!
