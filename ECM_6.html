@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <title>ECM Factorisatie Demo</title>
+  <style>
+    body { font-family: monospace; background: #222; color: #ddd; padding: 20px; }
+    button { margin-top: 10px; padding: 10px 20px; font-size: 16px; }
+    input { font-family: monospace; font-size: 16px; }
+    #log { white-space: pre-wrap; margin-top: 20px; max-height: 400px; overflow-y: auto; background: #111; padding: 10px; border: 1px solid #444; }
+  </style>
+</head>
+<body>
+
+<h1>ECM Factorisatie Demo (met priemtest & timer)</h1>
+
+<p>
+  Factoriseer N = 
+  <input type="text" id="N" value="11111111111" autocomplete="off" style="width:12ch;" />
+  <span id="digitCount">(11 digits)</span>
+</p>
+
+<button id="startBtn">Start factorisatie</button>
+<button id="stopBtn" disabled>Stop</button>
+<button id="clearBtn">Wis invoer</button>
+
+<div id="log"></div>
+
+<script>
+// ================= HELPER FUNCTIES =================
+function gcd(a,b) {
+  a = a < 0n ? -a : a;
+  b = b < 0n ? -b : b;
+  while (b !== 0n) {
+    let t = b;
+    b = a % b;
+    a = t;
+  }
+  return a;
+}
+
+function modInverse(a,m) {
+  let m0 = m, t, q;
+  let x0 = 0n, x1 = 1n;
+  a = a % m;
+  if (a < 0n) a += m;
+  while (a > 1n) {
+    q = a / m;
+    t = m;
+    m = a % m; a = t;
+    t = x0;
+    x0 = x1 - q * x0;
+    x1 = t;
+  }
+  if (x1 < 0n) x1 += m0;
+  return x1;
+}
+
+function eccAdd(P, Q, a, n) {
+  if (P === null) return Q;
+  if (Q === null) return P;
+  let [x1,y1] = P;
+  let [x2,y2] = Q;
+  if (x1 === x2 && (y1 + y2) % n === 0n) return null;
+  let m;
+  if (x1 === x2 && y1 === y2) {
+    let num = (3n*x1*x1 + a) % n;
+    let den = (2n*y1) % n;
+    let g = gcd(den, n);
+    if (g !== 1n && g !== n) return {factor: g};
+    let inv = modInverse(den, n);
+    m = (num * inv) % n;
+  } else {
+    let num = (y2 - y1) % n;
+    let den = (x2 - x1) % n;
+    let g = gcd(den, n);
+    if (g !== 1n && g !== n) return {factor: g};
+    let inv = modInverse(den, n);
+    m = (num * inv) % n;
+  }
+  if (m < 0n) m += n;
+  let x3 = (m*m - x1 - x2) % n;
+  if (x3 < 0n) x3 += n;
+  let y3 = (m*(x1 - x3) - y1) % n;
+  if (y3 < 0n) y3 += n;
+  return [x3,y3];
+}
+
+function eccMul(k, P, a, n) {
+  let R = null;
+  let Q = P;
+  while (k > 0n) {
+    if (k & 1n) {
+      R = eccAdd(R, Q, a, n);
+      if (R && R.factor) return R;
+    }
+    Q = eccAdd(Q, Q, a, n);
+    if (Q && Q.factor) return Q;
+    k >>= 1n;
+  }
+  return R;
+}
+
+function randBigInt(max) {
+  let bits = max.toString(2).length;
+  let rand;
+  do {
+    let s = "0b";
+    for (let i = 0; i < bits; i++) {
+      s += Math.random() < 0.5 ? "0" : "1";
+    }
+    rand = BigInt(s);
+  } while (rand >= max || rand === 0n);
+  return rand;
+}
+
+function generatePrimes(max) {
+  let sieve = new Uint8Array(Number(max)+1).fill(1);
+  sieve[0] = 0; sieve[1] = 0;
+  for (let i = 2; i*i <= max; i++) {
+    if (sieve[i]) {
+      for (let j = i*i; j <= max; j += i) sieve[j] = 0;
+    }
+  }
+  return Array.from(sieve.entries()).filter(([i,v]) => v).map(([i,_]) => BigInt(i));
+}
+
+function computeK(primes, B1) {
+  let k = 1n;
+  for (let p of primes) {
+    let pe = p;
+    while (pe <= B1) {
+      k *= pe;
+      pe *= p;
+    }
+  }
+  return k;
+}
+
+function modPow(base, exp, mod) {
+  let result = 1n;
+  base %= mod;
+  while (exp > 0) {
+    if (exp & 1n) result = (result * base) % mod;
+    base = (base * base) % mod;
+    exp >>= 1n;
+  }
+  return result;
+}
+
+function isProbablePrime(n, k = 5) {
+  if (n < 2n) return false;
+  if (n === 2n || n === 3n) return true;
+  if (n % 2n === 0n) return false;
+
+  let s = 0, d = n - 1n;
+  while (d % 2n === 0n) {
+    d /= 2n;
+    s++;
+  }
+
+  WitnessLoop:
+  for (let i = 0; i < k; i++) {
+    let a = randBigInt(n - 3n) + 2n;
+    let x = modPow(a, d, n);
+    if (x === 1n || x === n - 1n) continue;
+    for (let r = 1; r < s; r++) {
+      x = modPow(x, 2n, n);
+      if (x === n - 1n) continue WitnessLoop;
+    }
+    return false;
+  }
+  return true;
+}
+
+async function ecm(N, B1, log, onStop) {
+  const primes = generatePrimes(Number(B1));
+  const k = computeK(primes, BigInt(B1));
+  let curve = 0;
+  while (true) {
+    if (onStop()) break;
+    curve++;
+    let a = randBigInt(N);
+    let x = randBigInt(N);
+    let y = randBigInt(N);
+    let b = (y*y - x*x*x - a*x) % N;
+    if (b < 0n) b += N;
+    let P = [x,y];
+    log(`Curve ${curve}: a=${a}, P=(${x},${y})`);
+    let R = eccMul(k, P, a, N);
+    if (R && R.factor && R.factor !== 1n && R.factor !== N) {
+      return R.factor;
+    }
+    await new Promise(r => setTimeout(r, 10));
+  }
+  return null;
+}
+
+async function adaptiveECM(N, log, onStop) {
+  const steps = [5000, 10000, 20000, 40000, 80000];
+  for (let B1 of steps) {
+    log(`\n🔄 ECM met B1=${B1}`);
+    let factor = await ecm(N, B1, log, onStop);
+    if (factor) return factor;
+  }
+  return null;
+}
+
+// ================= UI / EVENT HANDLERS =================
+const logEl = document.getElementById('log');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const clearBtn = document.getElementById('clearBtn');
+const Ninput = document.getElementById('N');
+const digitCount = document.getElementById('digitCount');
+let stopFlag = false;
+
+function logMsg(msg) {
+  logEl.textContent += msg + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function updateInputWidthAndDigits() {
+  const val = Ninput.value.trim();
+  const digits = val.replace(/\D/g, '').length;
+  const widthCh = Math.max(digits, 10);
+  Ninput.style.width = widthCh + 'ch';
+  digitCount.textContent = `(${digits} digits)`;
+}
+
+updateInputWidthAndDigits();
+Ninput.addEventListener('input', updateInputWidthAndDigits);
+
+startBtn.onclick = async () => {
+  logEl.textContent = "";
+  stopFlag = false;
+
+  let Nstr = Ninput.value.trim();
+  if (!/^\d+$/.test(Nstr)) return alert("Voer een geldig natuurlijk getal in.");
+
+  let N = BigInt(Nstr);
+  if (N < 2n) return alert("Getal moet groter zijn dan 1.");
+
+  logMsg(`🔍 Priemtest op N=${N}...`);
+  const primeStart = performance.now();
+  if (isProbablePrime(N)) {
+    const ms = Math.round(performance.now() - primeStart);
+    logMsg(`✅ ${N} lijkt priem (in ${ms} ms). Geen factorisatie nodig.`);
+    return;
+  }
+
+  logMsg(`ℹ️ ${N} is waarschijnlijk samengesteld. ECM start...`);
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+
+  const startTime = performance.now();
+  let factor = await adaptiveECM(N, logMsg, () => stopFlag);
+  const endTime = performance.now();
+
+  if (factor) {
+    logMsg(`\n✅ Factor gevonden: ${factor} (na ${Math.round(endTime - startTime)} ms)`);
+  } else {
+    logMsg(`\n❌ Geen factor gevonden of gestopt.`);
+  }
+
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+};
+
+stopBtn.onclick = () => {
+  stopFlag = true;
+  logMsg("\n⏹️ Stop gevraagd...");
+  stopBtn.disabled = true;
+};
+
+clearBtn.onclick = () => {
+  Ninput.value = '';
+  updateInputWidthAndDigits();
+  logEl.textContent = '';
+};
+</script>
+
+</body>
+</html>
