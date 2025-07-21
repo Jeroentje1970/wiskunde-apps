@@ -6,7 +6,7 @@
 <style>
   body { font-family: monospace; background: #222; color: #ddd; padding: 20px; }
   button { margin-top: 10px; padding: 10px 20px; font-size: 16px; margin-right: 10px; }
-  #log { white-space: pre-wrap; margin-top: 20px; max-height: 400px; overflow-y: scroll; background: #111; padding: 10px; font-size: 18px; }
+  #log { white-space: pre-wrap; margin-top: 20px; max-height: 400px; overflow-y: scroll; background: #111; padding: 10px; font-size: 12px; }
   input { font-family: monospace; font-size: 16px; }
   .status { margin-top: 10px; font-style: italic; color: #aaa; }
 </style>
@@ -154,7 +154,7 @@ async function factorize(n, log, setStatus) {
   log("\nGevonden priemfactoren:");
   for (let f of factors) {
     const d = f.toString().length;
-    log(`  ${f} (${d} cijfers)`);
+    log(`  ${f} (${d})`);
   }
   setStatus("Klaar.");
 }
