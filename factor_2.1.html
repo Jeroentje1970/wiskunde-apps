@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<title>Factorisatie Tool</title>
+<style>
+  body { font-family: monospace; background: #222; color: #ddd; padding: 20px; }
+  button { margin-top: 10px; padding: 10px 20px; font-size: 16px; margin-right: 10px; }
+  #log { white-space: pre-wrap; margin-top: 20px; max-height: 400px; overflow-y: scroll; background: #111; padding: 10px; font-size: 18px; }
+  input { font-family: monospace; font-size: 16px; }
+  .status { margin-top: 10px; font-style: italic; color: #aaa; }
+</style>
+</head>
+<body>
+
+<h1>Alles-in-één Factorisatietool</h1>
+
+<p>
+  Voer een getal in: 
+  <input type="text" id="N" value="" autocomplete="off" style="width:12ch;" />
+  <span id="digitCount">(0 digits)</span>
+</p>
+
+<button id="startBtn">Start factorisatie</button>
+<button id="clearBtn">Wis invoer</button>
+<div class="status" id="status"></div>
+<div id="log"></div>
+
+<script>
+const Ninput = document.getElementById('N');
+const digitCountSpan = document.getElementById('digitCount');
+const startBtn = document.getElementById('startBtn');
+const clearBtn = document.getElementById('clearBtn');
+const logEl = document.getElementById('log');
+const statusEl = document.getElementById('status');
+
+function updateDigitCount() {
+  const val = Ninput.value.trim();
+  const digits = val.replace(/\D/g, '').length;
+  Ninput.style.width = Math.max(digits, 12) + 'ch';
+  digitCountSpan.textContent = `(${digits} digits)`;
+}
+Ninput.addEventListener('input', updateDigitCount);
+Ninput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') startBtn.click();
+});
+updateDigitCount();
+
+function log(msg) {
+  logEl.textContent += msg + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function clearLog() {
+  logEl.textContent = "";
+  statusEl.textContent = "";
+}
+function setStatus(msg) {
+  statusEl.textContent = msg;
+}
+
+function gcd(a, b) {
+  while (b !== 0n) [a, b] = [b, a % b];
+  return a;
+}
+function modPow(base, exp, mod) {
+  let result = 1n;
+  base = base % mod;
+  while (exp > 0n) {
+    if (exp % 2n === 1n) result = (result * base) % mod;
+    exp = exp / 2n;
+    base = (base * base) % mod;
+  }
+  return result;
+}
+function isPrime(n) {
+  if (n < 2n) return false;
+  for (let p of [2n, 3n, 5n, 7n, 11n, 13n, 17n, 19n]) {
+    if (n === p) return true;
+    if (n % p === 0n) return false;
+  }
+  let d = n - 1n;
+  let s = 0;
+  while (d % 2n === 0n) { d /= 2n; s++; }
+  for (let a of [2n, 3n]) {
+    let x = modPow(a, d, n);
+    if (x === 1n || x === n - 1n) continue;
+    let cont = false;
+    for (let r = 1; r < s; r++) {
+      x = modPow(x, 2n, n);
+      if (x === n - 1n) { cont = true; break; }
+    }
+    if (!cont) return false;
+  }
+  return true;
+}
+
+function pollardRho(n) {
+  if (n % 2n === 0n) return 2n;
+  let x = 2n, y = 2n, d = 1n;
+  let f = x => (modPow(x, 2n, n) + 1n) % n;
+  while (d === 1n) {
+    x = f(x);
+    y = f(f(y));
+    d = gcd(abs(x - y), n);
+  }
+  return d === n ? null : d;
+}
+function abs(x) {
+  return x < 0n ? -x : x;
+}
+function ecm(n, maxCurves = 100) {
+  const B1 = 100000n;
+  function tryCurve(a) {
+    let x = 2n;
+    for (let j = 2n; j <= B1; j++) {
+      x = modPow(x, j, n);
+      let d = gcd(x - 1n, n);
+      if (d > 1n && d < n) return d;
+    }
+    return null;
+  }
+  for (let i = 0; i < maxCurves; i++) {
+    let a = 1n + BigInt(Math.floor(Math.random() * 10000));
+    let f = tryCurve(a);
+    if (f) return f;
+  }
+  return null;
+}
+
+async function factorize(n, log, setStatus) {
+  let stack = [n];
+  let factors = [];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (isPrime(current)) {
+      factors.push(current);
+      continue;
+    }
+    setStatus(`Bezig met factorisatie van ${current}...`);
+    await new Promise(r => setTimeout(r, 10));
+    let f = pollardRho(current) || ecm(current);
+    if (!f || f === current) {
+      log(`Geen factor gevonden voor ${current}`);
+      factors.push(current);
+      continue;
+    }
+    let other = current / f;
+    log(`${current} = ${f} × ${other}`);
+    stack.push(f);
+    stack.push(other);
+  }
+  factors.sort((a,b)=> (a<b?-1:1));
+  log("\nGevonden priemfactoren:");
+  for (let f of factors) {
+    const d = f.toString().length;
+    log(`  ${f} (${d} cijfers)`);
+  }
+  setStatus("Klaar.");
+}
+
+startBtn.onclick = async () => {
+  clearLog();
+  let Nstr = Ninput.value.trim();
+  if (!/^\d+$/.test(Nstr)) {
+    alert("Voer een geldig natuurlijk getal in.");
+    return;
+  }
+  let N = BigInt(Nstr);
+  if (N < 2n) {
+    alert("Getal moet groter zijn dan 1.");
+    return;
+  }
+
+  setStatus("Start factorisatie...");
+  const start = performance.now();
+  await factorize(N, log, setStatus);
+  const duration = ((performance.now() - start) / 1000).toFixed(2);
+  log(`\nDuur: ${duration} seconden.`);
+};
+
+clearBtn.onclick = () => {
+  Ninput.value = "";
+  clearLog();
+  updateDigitCount();
+};
+</script>
+
+</body>
+</html>
