@@ -197,7 +197,7 @@ async function ecm(N, B1, log, onStop) {
 }
 
 async function adaptiveECM(N, log, onStop) {
-  const steps = [7500, 12500, 25000, 50000, 100000];
+  const steps = [10000, 17500, 25000, 50000, 100000];
   for (let B1 of steps) {
     log(`\n🔄 ECM met B1=${B1}`);
     let factor = await ecm(N, B1, log, onStop);
