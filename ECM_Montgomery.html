@@ -6,7 +6,6 @@
 <title>ECM Factorisatie – Montgomery X/Z</title>
 
 <style>
-
     body {
         font-family: monospace;
         background: #222;
@@ -21,35 +20,36 @@
     input {
         font-family: monospace;
         font-size: 16px;
+        background: #111;
+        color: #fff;
+        border: 1px solid #555;
+        padding: 4px;
     }
 
     button {
         font-family: monospace;
-        font-size: 14px;
-        margin: 4px;
-    }
-
-    #log {
-        white-space: pre-wrap;
-        background: #111;
-        padding: 10px;
-        margin-top: 15px;
-        border: 1px solid #555;
-        max-height: 700px;
-        overflow-y: auto;
-    }
-
-    .step-button {
-        margin: 0 2px;
-        padding: 0;
-        width: 28px;
-        height: 22px;
-        font-size: 13px;
-        line-height: 18px;
-        vertical-align: middle;
+        font-size: 16px;
+        padding: 5px 10px;
+        margin-right: 5px;
         cursor: pointer;
     }
 
+    .step-button {
+        padding: 2px 8px;
+        margin-left: 2px;
+        margin-right: 0;
+        font-size: 16px;
+    }
+
+    #log {
+        margin-top: 15px;
+        background: #111;
+        padding: 10px;
+        border: 1px solid #444;
+        height: 500px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+    }
 </style>
 </head>
 
@@ -86,7 +86,7 @@
 
 <p>
     <button id="startBtn">Start</button>
-    <button id="stopBtn" disabled>Stop</button>
+    <button id="stopBtn">Stop</button>
     <button id="clearBtn">Clear</button>
 </p>
 
@@ -94,133 +94,90 @@
 
 <script>
 
-// ============================================================
-// ELEMENTEN
-// ============================================================
+const Ninput = document.getElementById("N");
+const digitCount = document.getElementById("digitCount");
 
-const Ninput =
-    document.getElementById(
-        "N"
-    );
+const startBtn = document.getElementById("startBtn");
+const stopBtn = document.getElementById("stopBtn");
+const clearBtn = document.getElementById("clearBtn");
 
-const digitCount =
-    document.getElementById(
-        "digitCount"
-    );
+const upBtn = document.getElementById("upBtn");
+const downBtn = document.getElementById("downBtn");
 
-const startBtn =
-    document.getElementById(
-        "startBtn"
-    );
-
-const stopBtn =
-    document.getElementById(
-        "stopBtn"
-    );
-
-const clearBtn =
-    document.getElementById(
-        "clearBtn"
-    );
-
-const log =
-    document.getElementById(
-        "log"
-    );
+const log = document.getElementById("log");
 
 
 // ============================================================
-// UP / DOWN KNOPPEN
+// ▲ / ▼ N + 1 / N - 1
 // ============================================================
-
-const upBtn =
-    document.getElementById(
-        "upBtn"
-    );
-
-const downBtn =
-    document.getElementById(
-        "downBtn"
-    );
-
 
 function changeInputValue(amount) {
 
-    const value =
-        Ninput.value.trim();
+    const value = Ninput.value.trim();
 
-    if (
-        !/^\d+$/.test(value)
-    ) {
+    if (!/^\d+$/.test(value)) return;
 
-        return;
-    }
-
-    let N =
-        BigInt(value);
+    let N = BigInt(value);
 
     N += amount;
 
-    if (N < 0n) {
-
+    if (N < 0n)
         N = 0n;
-    }
 
-    Ninput.value =
-        N.toString();
+    Ninput.value = N.toString();
 
     updateInputWidthAndDigits();
 
     Ninput.focus();
 }
 
-
 upBtn.onclick = () => {
-
     changeInputValue(1n);
 };
 
-
 downBtn.onclick = () => {
-
     changeInputValue(-1n);
 };
 
 
 // ============================================================
-// LOG
+// Log
 // ============================================================
 
 function logMsg(text = "") {
 
-    log.textContent +=
-        text + "\n";
+    log.textContent += text + "\n";
 
-    log.scrollTop =
-        log.scrollHeight;
+    log.scrollTop = log.scrollHeight;
 }
 
 
 // ============================================================
-// STOP
+// Browser gelegenheid geven om het scherm opnieuw te tekenen
 // ============================================================
 
-let stopped =
-    false;
+function yieldToBrowser() {
+
+    return new Promise(resolve => setTimeout(resolve, 0));
+}
 
 
 // ============================================================
-// MOD
+// Stop
+// ============================================================
+
+let stopped = false;
+
+
+// ============================================================
+// Modulo
 // ============================================================
 
 function mod(a, n) {
 
-    const r =
-        a % n;
+    const r = a % n;
 
-    return r < 0n
-        ? r + n
-        : r;
+    return r >= 0n ? r : r + n;
 }
 
 
@@ -232,41 +189,35 @@ function gcd(a, b) {
 
     while (b !== 0n) {
 
-        const t =
-            a % b;
+        const t = a % b;
 
         a = b;
         b = t;
     }
 
-    return a < 0n
-        ? -a
-        : a;
+    return a < 0n ? -a : a;
 }
 
 
 // ============================================================
-// MOD POW
+// Modular exponentiation
 // ============================================================
 
-function modPow(base, exp, modn) {
+function modPow(base, exp, modulus) {
 
-    let result =
-        1n;
+    if (modulus === 1n)
+        return 0n;
 
-    base =
-        mod(base, modn);
+    let result = 1n;
+
+    base = mod(base, modulus);
 
     while (exp > 0n) {
 
-        if (exp & 1n) {
+        if (exp & 1n)
+            result = (result * base) % modulus;
 
-            result =
-                (result * base) % modn;
-        }
-
-        base =
-            (base * base) % modn;
+        base = (base * base) % modulus;
 
         exp >>= 1n;
     }
@@ -276,181 +227,135 @@ function modPow(base, exp, modn) {
 
 
 // ============================================================
-// MOD INVERSE
+// Modular inverse
 // ============================================================
 
 function modInverse(a, n) {
 
-    let t =
-        0n;
+    let t = 0n;
+    let newT = 1n;
 
-    let newT =
-        1n;
-
-    let r =
-        n;
-
-    let newR =
-        mod(a, n);
+    let r = n;
+    let newR = mod(a, n);
 
     while (newR !== 0n) {
 
-        const q =
-            r / newR;
+        const q = r / newR;
 
-        [
-            t,
-            newT
-        ] =
-        [
+        [t, newT] = [
             newT,
             t - q * newT
         ];
 
-        [
-            r,
-            newR
-        ] =
-        [
+        [r, newR] = [
             newR,
             r - q * newR
         ];
     }
 
-    if (r !== 1n) {
-
+    if (r !== 1n)
         return null;
-    }
 
     return mod(t, n);
 }
 
 
 // ============================================================
-// RANDOM BIGINT
+// Random BigInt
 // ============================================================
 
-function randomBigInt(max) {
+function randomBigInt(min, max) {
 
-    if (max <= 1n) {
+    const range = max - min + 1n;
 
-        return 0n;
-    }
+    const bits = range.toString(2).length;
 
-    const bits =
-        max.toString(2).length;
+    let value;
 
-    const bytes =
-        Math.ceil(bits / 8);
+    do {
 
-    while (true) {
+        value = 0n;
 
-        const arr =
-            new Uint8Array(bytes);
+        let remaining = bits;
 
-        crypto.getRandomValues(
-            arr
-        );
+        while (remaining > 0) {
 
-        let x =
-            0n;
+            const chunk = Math.min(30, remaining);
 
-        for (
-            const b of arr
-        ) {
+            const maxChunk = 1 << chunk;
 
-            x =
-                (x << 8n) |
-                BigInt(b);
+            const randomChunk =
+                Math.floor(Math.random() * maxChunk);
+
+            value =
+                (value << BigInt(chunk)) |
+                BigInt(randomChunk);
+
+            remaining -= chunk;
         }
 
-        x =
-            x % max;
+    } while (value >= range);
 
-        if (x > 0n) {
-
-            return x;
-        }
-    }
+    return min + value;
 }
 
 
 // ============================================================
-// SIEVE
+// Sieve
 // ============================================================
 
 function sieve(limit) {
 
-    const composite =
-        new Uint8Array(
-            limit + 1
-        );
+    const isPrime = new Uint8Array(limit + 1);
+
+    isPrime.fill(1);
+
+    isPrime[0] = 0;
+    isPrime[1] = 0;
+
+    for (let i = 2; i * i <= limit; i++) {
+
+        if (isPrime[i]) {
+
+            for (
+                let j = i * i;
+                j <= limit;
+                j += i
+            ) {
+                isPrime[j] = 0;
+            }
+        }
+    }
 
     const primes = [];
 
-    for (
-        let i = 2;
-        i <= limit;
-        i++
-    ) {
+    for (let i = 2; i <= limit; i++) {
 
-        if (
-            composite[i] === 0
-        ) {
-
+        if (isPrime[i])
             primes.push(i);
-
-            if (
-                i * i <= limit
-            ) {
-
-                for (
-                    let j = i * i;
-                    j <= limit;
-                    j += i
-                ) {
-
-                    composite[j] =
-                        1;
-                }
-            }
-        }
     }
 
     return primes;
 }
 
-
-const primes =
-    sieve(1000000);
+const primes = sieve(1000000);
 
 
 // ============================================================
-// TRIAL DIVISION
+// Trial division
 // ============================================================
 
 function trialDivision(N) {
 
-    for (
-        const p of primes
-    ) {
+    for (const p of primes) {
 
-        const bp =
-            BigInt(p);
+        const bp = BigInt(p);
 
-        if (
-            bp * bp > N
-        ) {
-
+        if (bp * bp > N)
             break;
-        }
 
-        if (
-            N % bp === 0n
-        ) {
-
+        if (N % bp === 0n)
             return bp;
-        }
     }
 
     return null;
@@ -458,252 +363,87 @@ function trialDivision(N) {
 
 
 // ============================================================
-// MONTGOMERY DIFFERENTIAL ADDITION
+// Montgomery addition
 // ============================================================
 
-function montgomeryAdd(
-    P,
-    Q,
-    diff,
-    A24,
-    N
-) {
+function montgomeryAdd(P, Q, N, A24) {
 
-    const X1 =
-        P[0];
+    const X1 = P[0];
+    const Z1 = P[1];
 
-    const Z1 =
-        P[1];
+    const X2 = Q[0];
+    const Z2 = Q[1];
 
-    const X2 =
-        Q[0];
+    const add1 = mod(X1 * Z2, N);
+    const add2 = mod(Z1 * X2, N);
 
-    const Z2 =
-        Q[1];
+    const add = mod(add1 + add2, N);
+    const sub = mod(add1 - add2, N);
 
-    const Xd =
-        diff[0];
+    const X3 = mod(sub * sub, N);
 
-    const Zd =
-        diff[1];
+    const Z3 = mod(add * add, N);
 
-
-    const A =
-        mod(
-            X1 + Z1,
-            N
-        );
-
-    const B =
-        mod(
-            X1 - Z1,
-            N
-        );
-
-    const C =
-        mod(
-            X2 + Z2,
-            N
-        );
-
-    const D =
-        mod(
-            X2 - Z2,
-            N
-        );
-
-    const DA =
-        mod(
-            D * A,
-            N
-        );
-
-    const CB =
-        mod(
-            C * B,
-            N
-        );
-
-    const X =
-        mod(
-            Zd *
-            mod(
-                DA + CB,
-                N
-            ) *
-            mod(
-                DA + CB,
-                N
-            ),
-            N
-        );
-
-    const Z =
-        mod(
-            Xd *
-            mod(
-                DA - CB,
-                N
-            ) *
-            mod(
-                DA - CB,
-                N
-            ),
-            N
-        );
-
-    return [
-        X,
-        Z
-    ];
+    return [X3, Z3];
 }
 
 
 // ============================================================
-// MONTGOMERY DOUBLE
+// Montgomery doubling
 // ============================================================
 
-function montgomeryDouble(
-    P,
-    A24,
-    N
-) {
+function montgomeryDouble(P, N, A24) {
 
-    const X =
-        P[0];
+    const X = P[0];
+    const Z = P[1];
 
-    const Z =
-        P[1];
+    const A = mod(X + Z, N);
+    const AA = mod(A * A, N);
 
-    const A =
-        mod(
-            X + Z,
-            N
-        );
+    const B = mod(X - Z, N);
+    const BB = mod(B * B, N);
 
-    const AA =
-        mod(
-            A * A,
-            N
-        );
+    const C = mod(AA - BB, N);
 
-    const B =
-        mod(
-            X - Z,
-            N
-        );
-
-    const BB =
-        mod(
-            B * B,
-            N
-        );
-
-    const C =
-        mod(
-            AA - BB,
-            N
-        );
-
-    const X2 =
-        mod(
-            AA * BB,
-            N
-        );
+    const X2 = mod(AA * BB, N);
 
     const Z2 =
-        mod(
-            C *
-            mod(
-                BB +
-                A24 * C,
-                N
-            ),
-            N
-        );
+        mod(C * mod(BB + A24 * C, N), N);
 
-    return [
-        X2,
-        Z2
-    ];
+    return [X2, Z2];
 }
 
 
 // ============================================================
-// MONTGOMERY LADDER
+// Montgomery ladder
 // ============================================================
 
-function montgomeryLadder(
-    k,
-    P,
-    A24,
-    N
-) {
+function montgomeryLadder(P, k, N, A24) {
 
-    let R0 =
-        [
-            1n,
-            0n
-        ];
+    if (k === 0n)
+        return [1n, 0n];
 
-    let R1 =
-        P;
+    let R0 = [1n, 0n];
+    let R1 = P;
 
-    let diff =
-        P;
+    const bits = k.toString(2);
 
-    const bits =
-        k.toString(2);
+    for (let i = 0; i < bits.length; i++) {
 
-    for (
-        let i = 0;
-        i < bits.length;
-        i++
-    ) {
-
-        if (stopped) {
-
+        if (stopped)
             return null;
-        }
 
-        const bit =
-            bits[i];
+        const bit = bits[i];
 
         if (bit === "0") {
 
-            R1 =
-                montgomeryAdd(
-                    R0,
-                    R1,
-                    diff,
-                    A24,
-                    N
-                );
-
-            R0 =
-                montgomeryDouble(
-                    R0,
-                    A24,
-                    N
-                );
+            R1 = montgomeryAdd(R0, R1, N, A24);
+            R0 = montgomeryDouble(R0, N, A24);
 
         } else {
 
-            R0 =
-                montgomeryAdd(
-                    R0,
-                    R1,
-                    diff,
-                    A24,
-                    N
-                );
-
-            R1 =
-                montgomeryDouble(
-                    R1,
-                    A24,
-                    N
-                );
+            R0 = montgomeryAdd(R0, R1, N, A24);
+            R1 = montgomeryDouble(R1, N, A24);
         }
     }
 
@@ -712,328 +452,144 @@ function montgomeryLadder(
 
 
 // ============================================================
-// ECM STAGE 1
+// ECM Stage 1
 // ============================================================
 
-function ecmStage1(
-    N,
-    B1
-) {
-
-    if (
-        N % 2n === 0n
-    ) {
-
-        return 2n;
-    }
+function ecmStage1(N, B1) {
 
     const sigma =
-        6n +
-        randomBigInt(
-            N - 6n
-        );
+        randomBigInt(6n, N - 1n);
 
     const u =
-        mod(
-            sigma * sigma - 5n,
-            N
-        );
+        mod(sigma * sigma - 5n, N);
 
     const v =
-        mod(
-            4n * sigma,
-            N
-        );
+        mod(4n * sigma, N);
 
     const u3 =
-        mod(
-            u * u * u,
-            N
-        );
+        mod(u * u * u, N);
 
     const v3 =
-        mod(
-            v * v * v,
-            N
-        );
-
-    const X =
-        u3;
-
-    const Z =
-        v3;
+        mod(v * v * v, N);
 
     const numerator =
-        mod(
-            mod(
-                v3 - u3,
-                N
-            ) *
-            mod(
-                v3 - u3,
-                N
-            ) *
-            mod(
-                3n * u3 + v3,
-                N
-            ),
-            N
-        );
+        mod((u3 - v3) * (3n * u + v), N);
 
     const denominator =
-        mod(
-            4n *
-            u3 *
-            v3,
-            N
-        );
+        mod(4n * u3 * v, N);
 
     const inv =
-        modInverse(
-            denominator,
-            N
-        );
+        modInverse(denominator, N);
 
-    if (
-        inv === null
-    ) {
-
-        const g =
-            gcd(
-                denominator,
-                N
-            );
-
-        if (
-            g > 1n &&
-            g < N
-        ) {
-
-            return g;
-        }
-
-        return null;
-    }
+    if (inv === null)
+        return gcd(denominator, N);
 
     const A =
-        mod(
-            numerator *
-            inv -
-            2n,
-            N
-        );
+        mod(numerator * inv - 2n, N);
 
     const A24 =
-        mod(
-            (A + 2n) *
-            modInverse(
-                4n,
-                N
-            ),
-            N
-        );
+        mod((A + 2n) * modInverse(4n, N), N);
 
+    let P = [
+        mod(u3, N),
+        mod(v3, N)
+    ];
 
-    let P =
-        [
-            X,
-            Z
-        ];
+    for (const p of primes) {
 
-
-    for (
-        const p of primes
-    ) {
-
-        if (
-            p > B1
-        ) {
-
+        if (p > B1)
             break;
-        }
 
-        let pp =
-            p;
+        let pp = BigInt(p);
 
-        while (
-            pp * p <= B1
-        ) {
-
-            pp *= p;
-        }
+        while (pp * BigInt(p) <= BigInt(B1))
+            pp *= BigInt(p);
 
         P =
             montgomeryLadder(
-                BigInt(pp),
                 P,
-                A24,
-                N
+                pp,
+                N,
+                A24
             );
 
-        if (
-            P === null
-        ) {
-
+        if (P === null)
             return null;
-        }
 
         const g =
-            gcd(
-                P[1],
-                N
-            );
+            gcd(P[1], N);
 
-        if (
-            g > 1n &&
-            g < N
-        ) {
-
+        if (g > 1n && g < N)
             return g;
-        }
 
-        if (
-            g === N
-        ) {
-
-            return null;
-        }
+        if (g === N)
+            return g;
     }
 
-    return null;
+    return gcd(P[1], N);
 }
 
 
 // ============================================================
-// MILLER-RABIN
+// Miller-Rabin
 // ============================================================
 
-function isPrime(N) {
+function isPrimeMR(n) {
 
-    if (N < 2n) {
-
+    if (n < 2n)
         return false;
-    }
 
-    const smallPrimes =
-        [
-            2n,
-            3n,
-            5n,
-            7n,
-            11n,
-            13n,
-            17n,
-            19n,
-            23n,
-            29n,
-            31n,
-            37n
-        ];
+    const smallPrimes = [
+        2n, 3n, 5n, 7n, 11n,
+        13n, 17n, 19n, 23n,
+        29n, 31n, 37n
+    ];
 
-    for (
-        const p of smallPrimes
-    ) {
+    for (const p of smallPrimes) {
 
-        if (
-            N === p
-        ) {
-
+        if (n === p)
             return true;
-        }
 
-        if (
-            N % p === 0n
-        ) {
-
+        if (n % p === 0n)
             return false;
-        }
     }
 
-    let d =
-        N - 1n;
+    let d = n - 1n;
+    let s = 0;
 
-    let s =
-        0;
-
-    while (
-        (d & 1n) === 0n
-    ) {
+    while ((d & 1n) === 0n) {
 
         d >>= 1n;
         s++;
     }
 
-    const bases =
-        [
-            2n,
-            3n,
-            5n,
-            7n,
-            11n,
-            13n,
-            17n,
-            19n,
-            23n,
-            29n,
-            31n,
-            37n
-        ];
+    for (const a of smallPrimes) {
 
-    for (
-        const a of bases
-    ) {
-
-        if (
-            a >= N
-        ) {
-
+        if (a >= n)
             continue;
-        }
 
         let x =
-            modPow(
-                a,
-                d,
-                N
-            );
+            modPow(a, d, n);
 
-        if (
-            x === 1n ||
-            x === N - 1n
-        ) {
-
+        if (x === 1n || x === n - 1n)
             continue;
-        }
 
-        let composite =
-            true;
+        let composite = true;
 
-        for (
-            let r = 1;
-            r < s;
-            r++
-        ) {
+        for (let r = 1; r < s; r++) {
 
             x =
-                (x * x) % N;
+                modPow(x, 2n, n);
 
-            if (
-                x === N - 1n
-            ) {
+            if (x === n - 1n) {
 
-                composite =
-                    false;
-
+                composite = false;
                 break;
             }
         }
 
-        if (
-            composite
-        ) {
-
+        if (composite)
             return false;
-        }
     }
 
     return true;
@@ -1041,273 +597,273 @@ function isPrime(N) {
 
 
 // ============================================================
-// FACTORISATIE
+// Factor list
 // ============================================================
 
-let factorList =
-    [];
+let factorList = [];
 
 
-function factorRecursive(N) {
+// ============================================================
+// Recursive factorisation
+// ============================================================
 
-    if (stopped) {
+async function factorRecursive(N) {
 
+    if (stopped)
         return;
-    }
 
-    if (
-        N === 1n
-    ) {
-
+    if (N === 1n)
         return;
-    }
 
-    if (
-        isPrime(N)
-    ) {
+
+    // --------------------------------------------------------
+    // Priem?
+    // --------------------------------------------------------
+
+    if (isPrimeMR(N)) {
 
         factorList.push(N);
 
+        logMsg(
+            "   → priem: " +
+            N.toString()
+        );
+
+        await yieldToBrowser();
+
         return;
     }
 
-    const small =
+
+    // --------------------------------------------------------
+    // Kleine factor
+    // --------------------------------------------------------
+
+    const smallFactor =
         trialDivision(N);
 
     if (
-        small !== null
+        smallFactor !== null &&
+        smallFactor !== N
     ) {
 
         logMsg(
-            "Kleine factor gevonden: " +
-            small
+            "   Kleine factor gevonden: " +
+            smallFactor.toString()
         );
 
-        factorRecursive(
-            small
-        );
+        await yieldToBrowser();
 
-        factorRecursive(
-            N / small
+        await factorRecursive(smallFactor);
+
+        await factorRecursive(
+            N / smallFactor
         );
 
         return;
     }
 
+
+    // --------------------------------------------------------
+    // ECM instellingen
+    // --------------------------------------------------------
 
     const digits =
         N.toString().length;
 
-
     let settings;
 
+    if (digits <= 25) {
 
-    if (
-        digits <= 25
-    ) {
+        settings = [
+            [10000, 100],
+            [25000, 100],
+            [50000, 100]
+        ];
 
-        settings =
-            [
-                [10000, 100],
-                [25000, 100],
-                [50000, 100]
-            ];
+    } else if (digits <= 35) {
 
-    } else if (
-        digits <= 35
-    ) {
+        settings = [
+            [25000, 200],
+            [50000, 200],
+            [100000, 300]
+        ];
 
-        settings =
-            [
-                [25000, 200],
-                [50000, 200],
-                [100000, 300]
-            ];
+    } else if (digits <= 45) {
 
-    } else if (
-        digits <= 45
-    ) {
+        settings = [
+            [50000, 300],
+            [100000, 500],
+            [250000, 700]
+        ];
 
-        settings =
-            [
-                [50000, 300],
-                [100000, 500],
-                [250000, 700]
-            ];
+    } else if (digits <= 55) {
 
-    } else if (
-        digits <= 55
-    ) {
-
-        settings =
-            [
-                [100000, 500],
-                [250000, 700],
-                [500000, 1000]
-            ];
+        settings = [
+            [100000, 500],
+            [250000, 700],
+            [500000, 1000]
+        ];
 
     } else {
 
-        settings =
-            [
-                [250000, 700],
-                [500000, 1000],
-                [1000000, 1500]
-            ];
+        settings = [
+            [250000, 700],
+            [500000, 1000],
+            [1000000, 1500]
+        ];
     }
 
 
-    for (
-        const [
-            B1,
-            curves
-        ] of settings
-    ) {
+    // --------------------------------------------------------
+    // ECM
+    // --------------------------------------------------------
+
+    for (const [B1, curves] of settings) {
+
+        if (stopped)
+            return;
 
         logMsg(
-            "🔎 ECM op " +
-            N
-        );
-
-        logMsg(
-            "   B1 = " +
+            "🚀 ECM Stage 1: B1 = " +
             B1 +
-            " | curves = " +
+            ", curves = " +
             curves
         );
 
+        await yieldToBrowser();
 
-        for (
-            let c = 1;
-            c <= curves;
-            c++
-        ) {
 
-            if (stopped) {
+        for (let c = 1; c <= curves; c++) {
 
+            if (stopped)
                 return;
-            }
+
 
             const f =
-                ecmStage1(
-                    N,
-                    B1
-                );
+                ecmStage1(N, B1);
 
-            if (
-                f !== null &&
-                f !== N
-            ) {
+
+            if (f !== null && f !== N && f > 1n) {
 
                 logMsg(
                     "🎯 ECM-factor gevonden: " +
-                    f
+                    f.toString()
                 );
 
-                factorRecursive(
-                    f
+                await yieldToBrowser();
+
+
+                const other =
+                    N / f;
+
+                logMsg(
+                    "🔎 C = " +
+                    other.toString() +
+                    " → verder factoriseren..."
                 );
 
-                factorRecursive(
-                    N / f
-                );
+                await yieldToBrowser();
+
+
+                // ------------------------------------------------
+                // Hier wordt de gevonden factor én de overblijvende
+                // C opnieuw afzonderlijk gefactoriseerd.
+                // ------------------------------------------------
+
+                await factorRecursive(f);
+
+                await factorRecursive(other);
 
                 return;
             }
 
-            if (
-                c % 10 === 0
-            ) {
+
+            if (c % 10 === 0) {
 
                 logMsg(
-                    "   curve " +
+                    "   Curve " +
                     c +
                     "/" +
-                    curves
+                    curves +
+                    " voltooid."
                 );
             }
+
+
+            // ----------------------------------------------------
+            // BELANGRIJK:
+            // browser krijgt hier de gelegenheid om het logscherm
+            // daadwerkelijk te tekenen.
+            // ----------------------------------------------------
+
+            await yieldToBrowser();
         }
     }
 
+
+    // --------------------------------------------------------
+    // Geen factor gevonden
+    // --------------------------------------------------------
 
     logMsg(
         "❌ ECM heeft geen factor gevonden."
     );
 
     factorList.push(N);
+
+    await yieldToBrowser();
 }
 
 
 // ============================================================
-// RESULTAAT
+// Resultaat
 // ============================================================
 
 function showResult() {
 
-    if (
-        stopped
-    ) {
-
-        return;
-    }
-
     factorList.sort(
         (a, b) =>
-            a < b
-                ? -1
-                : a > b
-                    ? 1
-                    : 0
+            a < b ? -1 :
+            a > b ? 1 : 0
     );
 
     logMsg("");
-    logMsg(
-        "=============================="
-    );
-    logMsg(
-        "Factorisatie:"
-    );
+    logMsg("================================");
+    logMsg("Factorisatie:");
 
-    for (
-        const f of factorList
-    ) {
+    for (const f of factorList) {
 
         logMsg(
+            "P" +
+            f.toString().length +
+            " = " +
             f.toString()
         );
     }
 
-    logMsg(
-        "=============================="
-    );
+    logMsg("================================");
 }
 
 
 // ============================================================
-// INPUT DIGITS
+// Input breedte + aantal cijfers
 // ============================================================
 
 function updateInputWidthAndDigits() {
 
     const value =
-        Ninput.value;
+        Ninput.value.trim();
 
     const digits =
         value.length;
 
     digitCount.textContent =
-        "(" +
-        digits +
-        " digits)";
+        "(" + digits + " digits)";
 
     Ninput.style.width =
-        Math.max(
-            12,
-            digits + 1
-        ) +
-        "ch";
+        Math.max(12, digits + 1) + "ch";
 }
-
 
 Ninput.addEventListener(
     "input",
@@ -1318,180 +874,109 @@ updateInputWidthAndDigits();
 
 
 // ============================================================
-// START
+// Start
 // ============================================================
 
-startBtn.onclick =
-    async function () {
+startBtn.onclick = async function () {
 
-        const value =
-            Ninput.value.trim();
+    stopped = false;
 
-        if (
-            !/^\d+$/.test(value)
-        ) {
+    factorList = [];
 
-            alert(
-                "Voer een positief geheel getal in."
-            );
+    log.textContent = "";
 
-            return;
-        }
+    const value =
+        Ninput.value.trim();
 
-        const N =
-            BigInt(value);
-
-        if (
-            N < 2n
-        ) {
-
-            alert(
-                "N moet minstens 2 zijn."
-            );
-
-            return;
-        }
-
-
-        stopped =
-            false;
-
-        factorList =
-            [];
-
-        log.textContent =
-            "";
-
-        startBtn.disabled =
-            true;
-
-        stopBtn.disabled =
-            false;
-
-        clearBtn.disabled =
-            true;
-
+    if (!/^\d+$/.test(value)) {
 
         logMsg(
-            "🔍 Priemtest op N=" +
-            N
+            "❌ Ongeldig getal."
         );
 
+        return;
+    }
 
-        if (
-            isPrime(N)
-        ) {
+    const N =
+        BigInt(value);
 
-            logMsg(
-                "ℹ️ N is priem."
-            );
-
-            factorList =
-                [N];
-
-            showResult();
-
-            startBtn.disabled =
-                false;
-
-            stopBtn.disabled =
-                true;
-
-            clearBtn.disabled =
-                false;
-
-            return;
-        }
-
+    if (N < 2n) {
 
         logMsg(
-            "ℹ️ N is samengesteld."
+            "❌ N moet groter zijn dan 1."
         );
 
-
-        await new Promise(
-            resolve =>
-                setTimeout(
-                    resolve,
-                    10
-                )
-        );
+        return;
+    }
 
 
-        factorRecursive(
-            N
-        );
+    logMsg(
+        "🔍 Priemtest op N = " +
+        N.toString()
+    );
 
-
-        if (
-            !stopped
-        ) {
-
-            showResult();
-        }
-
-
-        startBtn.disabled =
-            false;
-
-        stopBtn.disabled =
-            true;
-
-        clearBtn.disabled =
-            false;
-    };
-
-
-// ============================================================
-// STOP
-// ============================================================
-
-stopBtn.onclick =
-    function () {
-
-        stopped =
-            true;
+    if (isPrimeMR(N)) {
 
         logMsg(
-            "⛔ Gestopt."
+            "ℹ️ N is priem."
         );
 
-        startBtn.disabled =
-            false;
+        factorList.push(N);
 
-        stopBtn.disabled =
-            true;
+        showResult();
 
-        clearBtn.disabled =
-            false;
-    };
+        return;
+    }
+
+    logMsg(
+        "ℹ️ N is samengesteld."
+    );
+
+
+    // --------------------------------------------------------
+    // Geef browser eerst kans om bovenstaande tekst te tonen
+    // --------------------------------------------------------
+
+    await yieldToBrowser();
+
+
+    await factorRecursive(N);
+
+
+    if (!stopped) {
+
+        showResult();
+    }
+};
 
 
 // ============================================================
-// CLEAR
+// Stop
 // ============================================================
 
-clearBtn.onclick =
-    function () {
+stopBtn.onclick = function () {
 
-        stopped =
-            true;
+    stopped = true;
 
-        log.textContent =
-            "";
+    logMsg(
+        "⛔ Gestopt."
+    );
+};
 
-        factorList =
-            [];
 
-        startBtn.disabled =
-            false;
+// ============================================================
+// Clear
+// ============================================================
 
-        stopBtn.disabled =
-            true;
+clearBtn.onclick = function () {
 
-        clearBtn.disabled =
-            false;
-    };
+    stopped = true;
+
+    log.textContent = "";
+
+    factorList = [];
+};
+
 
 </script>
 
