@@ -1,4 +1,4 @@
-```html
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -64,7 +64,6 @@
 <button id="clearBtn">Wis invoer</button>
 
 <div id="log"></div>
-
 
 <script>
 
@@ -267,18 +266,19 @@ function generatePrimes(limit) {
 // ============================================================
 // TRIAL DIVISION PRIMES
 //
-// 100.000 is ruim voldoende voor het snel oplossen van
-// kleine cofactors voordat ECM wordt ingezet.
+// Tot 1.000.000.
+// Hierdoor worden ook kleine cofactors die na ECM ontstaan
+// zeer snel afgehandeld.
 //
 // Bijvoorbeeld:
 //
-// 16.347.077 = 353 × 46.309
+// 2535913 = 719 × 3527
 //
-// wordt hierdoor onmiddellijk gevonden.
+// wordt direct gevonden.
 // ============================================================
 
 const trialPrimes =
-    generatePrimes(100000);
+    generatePrimes(1000000);
 
 
 // ============================================================
@@ -546,9 +546,6 @@ function createECMCurve(N) {
                 v
             ) % N;
 
-        // Als de noemer geen inverse heeft,
-        // kan gcd direct een factor opleveren.
-
         const g =
             gcd(
                 denominator,
@@ -712,9 +709,6 @@ function isProbablePrime(
 
 // ============================================================
 // FACTORLABEL
-//
-// P18 = waarschijnlijk priem
-// C18 = samengesteld
 // ============================================================
 
 function factorLabel(n) {
@@ -738,13 +732,22 @@ function factorLabel(n) {
 // ============================================================
 // KLEINE FACTOREN
 //
-// We gebruiken trial division tot 100.000.
+// Belangrijk:
 //
-// BELANGRIJK:
+// Deze functie is nu expliciet verantwoordelijk voor ALLE
+// kleine factoren tot 1.000.000.
 //
-// Als p² > N, dan kan N alleen nog zelf priem zijn.
-// Daarom hoeft niet onnodig tot 100.000 doorgezocht
-// te worden.
+// Bovendien wordt alleen gezocht zolang p² <= N.
+//
+// Voor:
+//
+// 2535913
+//
+// wordt dus:
+//
+// 719 × 3527
+//
+// gevonden voordat ECM wordt aangeroepen.
 // ============================================================
 
 function removeSmallFactors(
@@ -760,17 +763,22 @@ function removeSmallFactors(
             break;
         }
 
-        while (
+        if (
             N % p === 0n
         ) {
 
-            factors.push(p);
+            while (
+                N % p === 0n
+            ) {
 
-            log(
-                `   Kleine factor gevonden: ${p}`
-            );
+                factors.push(p);
 
-            N /= p;
+                log(
+                    `   Kleine factor gevonden: ${p}`
+                );
+
+                N /= p;
+            }
         }
 
         if (N === 1n) {
@@ -780,6 +788,38 @@ function removeSmallFactors(
     }
 
     return N;
+}
+
+
+// ============================================================
+// DIRECTE KLEINE FACTORZOEKER
+//
+// Extra veiligheidsnet.
+//
+// Voor kleine getallen wordt expliciet trial division
+// uitgevoerd, onafhankelijk van ECM.
+//
+// Dit voorkomt dat bijvoorbeeld een C7 alsnog onnodig
+// naar ECM gaat.
+//
+// ============================================================
+
+function directSmallFactor(N) {
+
+    for (const p of trialPrimes) {
+
+        if (p * p > N) {
+
+            return null;
+        }
+
+        if (N % p === 0n) {
+
+            return p;
+        }
+    }
+
+    return null;
 }
 
 
@@ -852,16 +892,14 @@ async function ecmPhase(
     log("");
 
     log(
-        `🔄 ECM-fase — B1 = ` +
-        `${B1.toLocaleString()}`
+        `🔄 ECM Stage 1 — B1=${B1.toLocaleString()}`
     );
 
     const primes =
         generatePrimes(B1);
 
     log(
-        `   ${primes.length.toLocaleString()} ` +
-        `priemgetallen`
+        `   ${primes.length.toLocaleString()} priemgetallen`
     );
 
     const K =
@@ -871,8 +909,7 @@ async function ecmPhase(
         );
 
     log(
-        `   K = ` +
-        `${K.toString(2).length.toLocaleString()} bits`
+        `   K heeft ${K.toString(2).length.toLocaleString()} bits`
     );
 
     for (
@@ -938,9 +975,6 @@ async function ecmPhase(
 
 // ============================================================
 // ADAPTIVE ECM
-//
-// Stage 1.
-// Eerst kleine B1-waarden, daarna steeds groter.
 // ============================================================
 
 async function adaptiveECM(
@@ -1042,7 +1076,7 @@ async function factorRecursive(
 
 
     // --------------------------------------------------------
-    // EERST KLEINE FACTOREN
+    // KLEINE FACTOREN
     // --------------------------------------------------------
 
     N =
@@ -1081,6 +1115,59 @@ async function factorRecursive(
         );
 
         return true;
+    }
+
+
+    // --------------------------------------------------------
+    // EXTRA VEILIGHEIDSNET VOOR KLEINE COFACTORS
+    //
+    // Als N <= 1.000.000.000.000, dan is directe trial
+    // division praktisch gratis vergeleken met ECM.
+    //
+    // Dit voorkomt dat kleine samengestelde getallen ooit
+    // onnodig ECM in gaan.
+    // --------------------------------------------------------
+
+    if (N <= 1000000000000n) {
+
+        const smallFactor =
+            directSmallFactor(N);
+
+        if (smallFactor) {
+
+            const other =
+                N / smallFactor;
+
+            log(
+                `${indent}   Kleine factor gevonden: ${smallFactor}`
+            );
+
+            log(
+                `${indent}   Cofactor: ${other}`
+            );
+
+            const ok1 =
+                await factorRecursive(
+                    smallFactor,
+                    factors,
+                    log,
+                    onStop,
+                    depth + 1
+                );
+
+            if (!ok1) {
+
+                return false;
+            }
+
+            return await factorRecursive(
+                other,
+                factors,
+                log,
+                onStop,
+                depth + 1
+            );
+        }
     }
 
 
