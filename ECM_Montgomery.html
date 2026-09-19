@@ -1,5 +1,5 @@
-
 <!DOCTYPE html>
+
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
@@ -31,6 +31,27 @@
         cursor: pointer;
     }
 
+    /* --------------------------------------------------------
+       UP / DOWN KNOPPEN
+       -------------------------------------------------------- */
+
+    .number-control {
+        display: inline-flex;
+        flex-direction: column;
+        vertical-align: middle;
+        margin-left: 5px;
+    }
+
+    .number-control button {
+        margin: 0;
+        padding: 0;
+        width: 28px;
+        height: 18px;
+        font-size: 12px;
+        line-height: 14px;
+        cursor: pointer;
+    }
+
     #log {
         white-space: pre-wrap;
         margin-top: 20px;
@@ -41,6 +62,7 @@
         border: 1px solid #444;
     }
 </style>
+
 </head>
 
 <body>
@@ -56,12 +78,19 @@
         autocomplete="off"
         style="width:12ch;"
     />
-    <span id="digitCount">(11 digits)</span>
+
+```
+<span class="number-control">
+    <button id="upBtn" title="Verhoog met 1">▲</button>
+    <button id="downBtn" title="Verlaag met 1">▼</button>
+</span>
+
+<span id="digitCount">(11 digits)</span>
+```
+
 </p>
 
-<button id="startBtn">Start factorisatie</button>
-<button id="stopBtn" disabled>Stop</button>
-<button id="clearBtn">Wis invoer</button>
+<button id="startBtn">Start factorisatie</button> <button id="stopBtn" disabled>Stop</button> <button id="clearBtn">Wis invoer</button>
 
 <div id="log"></div>
 
@@ -1364,6 +1393,16 @@ const digitCount =
         "digitCount"
     );
 
+const upBtn =
+    document.getElementById(
+        "upBtn"
+    );
+
+const downBtn =
+    document.getElementById(
+        "downBtn"
+    );
+
 let stopFlag = false;
 
 
@@ -1412,6 +1451,51 @@ Ninput.addEventListener(
     "input",
     updateInputWidthAndDigits
 );
+
+
+// ============================================================
+// UP / DOWN
+// ============================================================
+
+function changeInputValue(amount) {
+
+    const value =
+        Ninput.value.trim();
+
+    if (
+        !/^\d+$/.test(value)
+    ) {
+
+        return;
+    }
+
+    let N =
+        BigInt(value);
+
+    N += amount;
+
+    if (N < 0n) {
+
+        N = 0n;
+    }
+
+    Ninput.value =
+        N.toString();
+
+    updateInputWidthAndDigits();
+
+    Ninput.focus();
+}
+
+upBtn.onclick = () => {
+
+    changeInputValue(1n);
+};
+
+downBtn.onclick = () => {
+
+    changeInputValue(-1n);
+};
 
 
 // ============================================================
