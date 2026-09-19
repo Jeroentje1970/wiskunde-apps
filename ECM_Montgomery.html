@@ -1,7 +1,9 @@
+```html
 <!DOCTYPE html>
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
+
 <title>ECM Factorisatie – Montgomery X/Z</title>
 
 <style>
@@ -76,7 +78,9 @@ function gcd(a, b) {
     if (b < 0n) b = -b;
 
     while (b !== 0n) {
+
         const t = a % b;
+
         a = b;
         b = t;
     }
@@ -142,6 +146,7 @@ function modPow(base, exp, n) {
     while (exp > 0n) {
 
         if ((exp & 1n) !== 0n) {
+
             result =
                 (result * base) % n;
         }
@@ -201,6 +206,7 @@ function randomBigIntBelow(max) {
             value > 0n &&
             value < max
         ) {
+
             return value;
         }
     }
@@ -208,7 +214,7 @@ function randomBigIntBelow(max) {
 
 
 // ============================================================
-// PRIEMGETALLEN TOT B1
+// PRIEMGETALLEN
 // ============================================================
 
 function generatePrimes(limit) {
@@ -234,6 +240,7 @@ function generatePrimes(limit) {
                 j <= limit;
                 j += p
             ) {
+
                 sieve[j] = 0;
             }
         }
@@ -248,12 +255,30 @@ function generatePrimes(limit) {
     ) {
 
         if (sieve[p]) {
+
             primes.push(BigInt(p));
         }
     }
 
     return primes;
 }
+
+
+// ============================================================
+// TRIAL DIVISION PRIMES
+//
+// 100.000 is ruim voldoende voor het snel oplossen van
+// kleine cofactors voordat ECM wordt ingezet.
+//
+// Bijvoorbeeld:
+//
+// 16.347.077 = 353 × 46.309
+//
+// wordt hierdoor onmiddellijk gevonden.
+// ============================================================
+
+const trialPrimes =
+    generatePrimes(100000);
 
 
 // ============================================================
@@ -264,7 +289,8 @@ function generatePrimes(limit) {
 
 function computeECMScalar(primes, B1) {
 
-    const B = BigInt(B1);
+    const B =
+        BigInt(B1);
 
     let K = 1n;
 
@@ -273,6 +299,7 @@ function computeECMScalar(primes, B1) {
         let q = p;
 
         while (q * p <= B) {
+
             q *= p;
         }
 
@@ -385,6 +412,7 @@ function montgomeryAdd(P, Q, D, N) {
 function montgomeryLadder(k, P, A24, N) {
 
     if (k === 0n) {
+
         return [0n, 0n];
     }
 
@@ -475,6 +503,7 @@ function createECMCurve(N) {
             u === 0n ||
             v === 0n
         ) {
+
             continue;
         }
 
@@ -485,7 +514,10 @@ function createECMCurve(N) {
             (u2 * u) % N;
 
         const vu =
-            mod(v - u, N);
+            mod(
+                v - u,
+                N
+            );
 
         const vu2 =
             (vu * vu) % N;
@@ -514,9 +546,8 @@ function createECMCurve(N) {
                 v
             ) % N;
 
-        // Heel belangrijk:
-        // als de inverse niet bestaat, kan gcd ons
-        // rechtstreeks een factor geven.
+        // Als de noemer geen inverse heeft,
+        // kan gcd direct een factor opleveren.
 
         const g =
             gcd(
@@ -548,9 +579,8 @@ function createECMCurve(N) {
 
         if (gg !== 1n) {
 
-            if (
-                gg !== N
-            ) {
+            if (gg !== N) {
+
                 return {
                     factor: gg
                 };
@@ -588,6 +618,7 @@ function isProbablePrime(
 ) {
 
     if (N < 2n) {
+
         return false;
     }
 
@@ -601,10 +632,12 @@ function isProbablePrime(
     for (const p of smallPrimes) {
 
         if (N === p) {
+
             return true;
         }
 
         if (N % p === 0n) {
+
             return false;
         }
     }
@@ -642,6 +675,7 @@ function isProbablePrime(
             x === 1n ||
             x === N - 1n
         ) {
+
             continue;
         }
 
@@ -661,11 +695,13 @@ function isProbablePrime(
             ) {
 
                 witnessPassed = true;
+
                 break;
             }
         }
 
         if (!witnessPassed) {
+
             return false;
         }
     }
@@ -677,7 +713,7 @@ function isProbablePrime(
 // ============================================================
 // FACTORLABEL
 //
-// P18 = priem
+// P18 = waarschijnlijk priem
 // C18 = samengesteld
 // ============================================================
 
@@ -690,6 +726,7 @@ function factorLabel(n) {
         isProbablePrime(n);
 
     return {
+
         prime: prime,
 
         text:
@@ -700,24 +737,14 @@ function factorLabel(n) {
 
 // ============================================================
 // KLEINE FACTOREN
-// ============================================================
-
-const smallPrimes = [
-
-    2n, 3n, 5n, 7n,
-    11n, 13n, 17n,
-    19n, 23n, 29n,
-    31n, 37n, 41n,
-    43n, 47n, 53n,
-    59n, 61n, 67n,
-    71n, 73n, 79n,
-    83n, 89n, 97n
-
-];
-
-
-// ============================================================
-// TRIAL DIVISION
+//
+// We gebruiken trial division tot 100.000.
+//
+// BELANGRIJK:
+//
+// Als p² > N, dan kan N alleen nog zelf priem zijn.
+// Daarom hoeft niet onnodig tot 100.000 doorgezocht
+// te worden.
 // ============================================================
 
 function removeSmallFactors(
@@ -726,7 +753,12 @@ function removeSmallFactors(
     log
 ) {
 
-    for (const p of smallPrimes) {
+    for (const p of trialPrimes) {
+
+        if (p * p > N) {
+
+            break;
+        }
 
         while (
             N % p === 0n
@@ -742,6 +774,7 @@ function removeSmallFactors(
         }
 
         if (N === 1n) {
+
             break;
         }
     }
@@ -761,10 +794,9 @@ function runECMCurve(
 ) {
 
     if (onStop()) {
+
         return null;
     }
-
-    // Nieuwe willekeurige curve
 
     const curve =
         createECMCurve(N);
@@ -775,10 +807,9 @@ function runECMCurve(
     }
 
     if (onStop()) {
+
         return null;
     }
-
-    // Punt vermenigvuldigen met K
 
     const R =
         montgomeryLadder(
@@ -787,8 +818,6 @@ function runECMCurve(
             curve.A24,
             N
         );
-
-    // Hier gebeurt de eigenlijke ECM-test
 
     const g =
         gcd(
@@ -821,15 +850,18 @@ async function ecmPhase(
 ) {
 
     log("");
+
     log(
-        `🔄 ECM Stage 1 — B1=${B1}`
+        `🔄 ECM-fase — B1 = ` +
+        `${B1.toLocaleString()}`
     );
 
     const primes =
         generatePrimes(B1);
 
     log(
-        `   ${primes.length.toLocaleString()} priemgetallen`
+        `   ${primes.length.toLocaleString()} ` +
+        `priemgetallen`
     );
 
     const K =
@@ -839,7 +871,7 @@ async function ecmPhase(
         );
 
     log(
-        `   K heeft ` +
+        `   K = ` +
         `${K.toString(2).length.toLocaleString()} bits`
     );
 
@@ -850,6 +882,7 @@ async function ecmPhase(
     ) {
 
         if (onStop()) {
+
             return null;
         }
 
@@ -870,8 +903,11 @@ async function ecmPhase(
         if (factor) {
 
             return {
+
                 factor: factor,
+
                 curve: curveNo,
+
                 elapsed: elapsed
             };
         }
@@ -903,9 +939,8 @@ async function ecmPhase(
 // ============================================================
 // ADAPTIVE ECM
 //
-// Bewust voorlopig alleen Stage 1.
-// Dit is veel beter te testen voordat we
-// een echte snelle Stage 2 toevoegen.
+// Stage 1.
+// Eerst kleine B1-waarden, daarna steeds groter.
 // ============================================================
 
 async function adaptiveECM(
@@ -950,7 +985,6 @@ async function adaptiveECM(
             B1: 1000000,
             curves: 80
         }
-
     ];
 
     for (
@@ -958,6 +992,7 @@ async function adaptiveECM(
     ) {
 
         if (onStop()) {
+
             return null;
         }
 
@@ -971,6 +1006,7 @@ async function adaptiveECM(
             );
 
         if (result) {
+
             return result;
         }
     }
@@ -992,18 +1028,21 @@ async function factorRecursive(
 ) {
 
     if (onStop()) {
+
         return false;
     }
 
     if (N === 1n) {
+
         return true;
     }
 
     const indent =
         "  ".repeat(depth);
 
+
     // --------------------------------------------------------
-    // Kleine factoren verwijderen
+    // EERST KLEINE FACTOREN
     // --------------------------------------------------------
 
     N =
@@ -1017,8 +1056,10 @@ async function factorRecursive(
         );
 
     if (N === 1n) {
+
         return true;
     }
+
 
     // --------------------------------------------------------
     // PRIEMTEST
@@ -1041,6 +1082,7 @@ async function factorRecursive(
 
         return true;
     }
+
 
     // --------------------------------------------------------
     // N IS SAMENGESTELD
@@ -1078,6 +1120,7 @@ async function factorRecursive(
     const factor =
         result.factor;
 
+
     // --------------------------------------------------------
     // VEILIGHEIDSCONTROLES
     // --------------------------------------------------------
@@ -1098,8 +1141,9 @@ async function factorRecursive(
     const cofactor =
         N / factor;
 
+
     // --------------------------------------------------------
-    // DIRECT CLASSIFICEREN
+    // CLASSIFICEREN
     // --------------------------------------------------------
 
     const factorInfo =
@@ -1131,8 +1175,9 @@ async function factorRecursive(
         `${result.elapsed.toFixed(0)} ms`
     );
 
+
     // --------------------------------------------------------
-    // EERSTE TAK: FACTOR
+    // FACTOR VERDER ONTBINDEN
     // --------------------------------------------------------
 
     log("");
@@ -1151,11 +1196,13 @@ async function factorRecursive(
         );
 
     if (!ok1) {
+
         return false;
     }
 
+
     // --------------------------------------------------------
-    // TWEEDE TAK: COFACTOR
+    // COFACTOR VERDER ONTBINDEN
     // --------------------------------------------------------
 
     log("");
@@ -1187,6 +1234,7 @@ function sortFactors(factors) {
         (a, b) => {
 
             if (a < b) return -1;
+
             if (a > b) return 1;
 
             return 0;
@@ -1326,6 +1374,7 @@ startBtn.onclick = async () => {
         `🔍 Priemtest op N=${N}`
     );
 
+
     // --------------------------------------------------------
     // DIRECTE PRIEMTEST
     // --------------------------------------------------------
@@ -1350,6 +1399,7 @@ startBtn.onclick = async () => {
 
         return;
     }
+
 
     logMsg("");
 
@@ -1388,6 +1438,7 @@ startBtn.onclick = async () => {
         console.error(error);
     }
 
+
     // --------------------------------------------------------
     // EINDRESULTAAT
     // --------------------------------------------------------
@@ -1424,6 +1475,7 @@ startBtn.onclick = async () => {
                 `  ${info.text}`
             );
         }
+
 
         // ----------------------------------------------------
         // PRODUCTCONTROLE
